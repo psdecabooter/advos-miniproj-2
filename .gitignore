@@ -3,8 +3,8 @@ timer-test
 latency-test
 throughput-test
 
-# benchmark results
-*.csv
+# benchmark results, root only -- results/ is committed
+/*.csv
 
 # latex build products
 report/*.aux

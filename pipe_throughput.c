@@ -24,8 +24,10 @@
   Output:
     A readable table on stdout, plus pipe_throughput.csv for plotting.
 */
+#define _GNU_SOURCE
 #include "Timer.h"
 #include <limits.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,14 +85,63 @@ static void kill_kid(pid_t cpid) {
   }
 }
 
+
+/* ---------------------------------------------------------------------- */
+/* Optional CPU pinning.                                                   */
+/*                                                                          */
+/* Wrapping the whole benchmark in taskset would confine parent and child   */
+/* to one shared allowed set, which cannot express "parent on 0, child on   */
+/* 1".  Pinning each process to its own CPU after the fork can.  That       */
+/* distinction is the point of the experiment: same-core exchanges pay a    */
+/* context switch, cross-core exchanges pay an IPI, a wakeup and whatever   */
+/* the cache line migration costs.                                          */
+
+static int g_parent_cpu = -1; /* -1 means leave the scheduler alone */
+static int g_child_cpu = -1;
+static const char *g_label = "unpinned";
+
+static void pin_self(int cpu) {
+  if (cpu < 0)
+    return;
+  cpu_set_t set;
+  CPU_ZERO(&set);
+  CPU_SET(cpu, &set);
+  if (sched_setaffinity(0, sizeof(set), &set) != 0) {
+    perror("sched_setaffinity");
+    exit(EXIT_FAILURE);
+  }
+  sched_yield(); /* take the migration now, not mid-measurement */
+}
+
+static void parse_affinity_args(int argc, char **argv) {
+  if (argc > 1)
+    g_label = argv[1];
+  if (argc > 2)
+    g_parent_cpu = atoi(argv[2]);
+  if (argc > 3)
+    g_child_cpu = atoi(argv[3]);
+  if (argc > 4) {
+    fprintf(stderr, "usage: %s [label] [parent_cpu] [child_cpu]\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
+}
+
+/* Name the output after the configuration so that the three runs cannot
+   silently overwrite one another. */
+static void csv_name(char *out, size_t n, const char *stem) {
+  snprintf(out, n, "%s_%s.csv", stem, g_label);
+}
+
 static void throughput_parent(int p2c[2], int c2p[2], pid_t cpid) {
   close(p2c[0]);
   close(c2p[1]);
 
-  FILE *csv = fopen("pipe_throughput.csv", "w");
+  char csvpath[256];
+  csv_name(csvpath, sizeof(csvpath), "pipe_throughput");
+  FILE *csv = fopen(csvpath, "w");
   if (csv == NULL) {
     kill_kid(cpid);
-    perror("fopen");
+    perror(csvpath);
     exit(EXIT_FAILURE);
   }
   fprintf(csv, "chunk_bytes,writes_per_run,total_bytes,trials,mean_MiB_per_s,"
@@ -153,7 +204,7 @@ static void throughput_parent(int p2c[2], int c2p[2], pid_t cpid) {
   }
 
   fclose(csv);
-  printf("\nWrote pipe_throughput.csv\n");
+  printf("\nWrote %s\n", csvpath);
   kill_kid(cpid);
   exit(EXIT_SUCCESS);
 }
@@ -189,7 +240,9 @@ static void throughput_child(int p2c[2], int c2p[2]) {
   exit(EXIT_SUCCESS);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+  parse_affinity_args(argc, argv);
+
   int p2c[2];
   int c2p[2];
 
@@ -204,10 +257,13 @@ int main(void) {
     exit(EXIT_FAILURE);
   }
 
-  if (cpid == 0)
+  if (cpid == 0) {
+    pin_self(g_child_cpu);
     throughput_child(p2c, c2p);
-  else
+  } else {
+    pin_self(g_parent_cpu);
     throughput_parent(p2c, c2p, cpid);
+  }
 
   return 0;
 }

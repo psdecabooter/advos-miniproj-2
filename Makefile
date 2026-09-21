@@ -1,5 +1,5 @@
 CC     = gcc
-CFLAGS = -O3 -Wall
+CFLAGS = -O3 -Wall -Wextra
 
 BINS = timer-test latency-test throughput-test
 
@@ -27,6 +27,6 @@ run-throughput: throughput-test
 run-all: run-timer run-latency run-throughput
 
 clean:
-	rm -f $(BINS) pipe_latency.csv pipe_throughput.csv
+	rm -f $(BINS) *.csv
 
 .PHONY: all run-timer run-latency run-throughput run-all clean

@@ -1,0 +1,40 @@
+Computer: Apple MacBook (M1), 16GB RAM - host running QEMU with the hvf accelerator
+Guest: kernel-vm, 8 vCPUs, 12 GB RAM (MemTotal 12226252 kB), ext4 root
+CPU: CPU implementer 0x61 (Apple), CPU part 0x000, CPU architecture 8
+8 logical processors, BogoMIPS 48.00
+
+CAVEAT: this is a virtualized guest (systemd-detect-virt reports "qemu").
+Measurements include any hypervisor overhead and must be read as such.
+
+OS:
+- Virtualization: qemu (hvf accelerator)
+- Operating System: Ubuntu 24.04.4 LTS (noble)
+- Kernel: Linux 7.2.4 #2 SMP PREEMPT Fri Sep 11 20:58:06 UTC 2026
+  (custom build, arm64 defconfig, carries the ext4 fsync counter patch
+   from Mini-Project 1; stock 6.8.0 remains the GRUB fallback)
+- Architecture: aarch64
+Compiler: gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1)
+
+Pipe-relevant parameters:
+- getconf PAGESIZE:                     4096
+- Implied default pipe capacity:        65536 (16 pages x 4096)
+- /proc/sys/fs/pipe-max-size:           1048576
+- /proc/sys/fs/pipe-user-pages-soft:    16384
+- /proc/sys/fs/pipe-user-pages-hard:    0 (unlimited)
+
+Because pipe-max-size is 1 MiB, the F_SETPIPE_SZ sweep up to 1 MiB runs
+unprivileged. No sysctl change or sudo is required.
+
+Clock sources:
+- clock_gettime(CLOCK_MONOTONIC)
+- gettimeofday
+- cntvct_el0 (arm64 generic timer, the rdtsc analogue)
+  cntfrq_el0 = 24000000 Hz, period 41.667 ns
+  Two back-to-back cntvct_el0 reads differ by 0 ticks, so the counter is
+  coarser than a clock_gettime call is long.
+
+Profiling tool availability (checked on this guest):
+- perf:   not installed; linux-tools packaged only for 6.8.0, no build
+          matches the custom 7.2.4 kernel
+- strace: not installed, available from the archive
+- ftrace: /sys/kernel/debug/tracing not available
