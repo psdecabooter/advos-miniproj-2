@@ -1542,11 +1542,12 @@ CONTENTS
 18. COMMIT HISTORY
 ================================================================================
 
-  Branch: benchmarks  HEAD: 4f25d75
+  Branch: benchmarks  HEAD: 6a412ed
   Full history, newest first. The data commits are the ones to
   check a number against: anything committed after them only
   reshapes the presentation.
 
+  6a412ed  2026-09-21  final version
   4f25d75  2026-09-21  style(report): hoist axis options into one pgfplots style and centre legends below each axis
   fe756d6  2026-09-21  updated
   8ccb7c1  2026-09-21  Add AI attribution section
