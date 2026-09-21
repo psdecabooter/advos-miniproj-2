@@ -1,0 +1,16 @@
+# built binaries
+timer-test
+latency-test
+throughput-test
+
+# benchmark results
+*.csv
+
+# latex build products
+report/*.aux
+report/*.fdb_latexmk
+report/*.fls
+report/*.log
+report/*.synctex.gz
+report/*.out
+report/*.toc
