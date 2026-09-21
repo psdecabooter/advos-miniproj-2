@@ -16,35 +16,57 @@ Everything ran inside a QEMU guest, never on the macOS host: the report is
 about Linux pipes, and macOS pipes are XNU and behave differently. Commands
 shown as "$" were issued in the guest over ssh.
 
+Every number in the narrative below is read out of results/csv at generation
+time, never typed in. Section 16 item 6 records why.
+
 CONTENTS
    1. Deliverables
    2. Apparatus
    3. Reproducing from a clean checkout
    4. Source files
-   5. Part 1 -- clock selection
-   6. Part 2 -- latency
-   7. Part 3 -- throughput
-   8. Part 4a -- measuring pipe capacity
-   9. Part 4b -- capacity as the independent variable
-  10. Part 4c -- where the time goes
-  11. Derived numbers quoted in the paper
-  12. Problems encountered and how they were resolved
-  13. Index of raw output files
-  14. Commit history
+   5. Experiment design at a glance
+   6. Data dictionary -- every CSV column
+   7. Part 1 -- clock selection
+   8. Part 2 -- latency
+   9. Part 3 -- throughput
+  10. Part 4a -- measuring pipe capacity
+  11. Part 4b -- capacity as the independent variable
+  12. Part 4c -- where the time goes
+  13. Aggregated series as they enter the paper
+  14. Derived numbers quoted in the paper
+  15. Threats to validity and known limitations
+  16. Problems encountered and how they were resolved
+  17. Index of data files, with checksums
+  18. Commit history
 
 ================================================================================
 1. DELIVERABLES
 ================================================================================
 
   report/main.tex     the paper, source
-  report/main.pdf     the paper, compiled: 2-column, 11pt, 1in margins as the
-                      assignment requires. NOTE it currently runs to 3 pages
-                      and the assignment asks for 2; trimming is outstanding.
-  EXPERIMENTS.txt     this file
-  results/csv/        every number the paper cites, as CSV
-  results/raw/        unedited stdout from every run
-  report/figures/     plot data and the generated table, built from results/csv
+  report/main.pdf     the paper, compiled: 2-column, 11pt, 1in margins and two
+                      pages, as the assignment requires
+  EXPERIMENTS.txt     this file: the evidence behind the paper
+  METHODOLOGY.md      the procedure and the reasoning behind it -- why each
+                      experiment is shaped the way it is
+  results/raw/        unedited stdout from every run, nothing hand-tidied
+  results/csv/        machine-readable form of the same runs, written by the
+                      benchmarks themselves
+  report/figures/     plot data, generated tables and generated prose macros,
+                      all built from results/csv by scripts/aggregate.py
   scripts/            aggregation and log generation, standard library only
+  PLAN.md             the working brief the re-run was executed from
+
+  Chain of custody for any number in the paper:
+
+    benchmark binary -> results/raw/*.txt   (stdout, verbatim)
+                     -> results/csv/*.csv   (same run, machine readable)
+                     -> scripts/aggregate.py
+                     -> report/figures/*.dat, *_table.tex, numbers.tex
+                     -> report/main.tex     (\input, never retyped)
+
+  Nothing in that chain is edited by hand. The only hand-written artefacts are
+  the .c sources, the prose, and the scripts themselves.
 
 ================================================================================
 2. APPARATUS
@@ -103,6 +125,23 @@ CONTENTS
   of the latency benchmark with an accumulator bug and were discarded. We did
   not mix datasets across machines.
 
+  Build: gcc 13.3.0, -O3 -Wall -Wextra, one translation unit per benchmark,
+  no linker flags beyond the default. -O3 is deliberate: the benchmarks are
+  syscall-bound, and compiling them unoptimized would measure the harness
+  instead of the pipe. Nothing is computed inside a timed region that could be
+  hoisted out of one -- the timed regions contain syscalls only.
+
+  One correction to the specs above: strace is listed there as "not
+  installed", which was true when the specs were taken. It was installed from
+  the Ubuntu archive afterwards, and part 4c uses it. perf and ftrace remained
+  unavailable and no workaround was found for either.
+
+  Collection window: the whole placement matrix (parts 2 and 3, 30 launches)
+  came from ONE invocation of run_matrix.sh, so every file in it carries the
+  same timestamp suffix, 20260921-211412. Parts 1 and 4 were run in the same session on the
+  same boot. The machine was otherwise idle; no other interactive session was
+  open on the guest.
+
 ================================================================================
 3. REPRODUCING FROM A CLEAN CHECKOUT
 ================================================================================
@@ -123,11 +162,28 @@ CONTENTS
     $ ./profile-test 524288 500 0 0
     $ ./profile-test 524288 500 0 1
 
+  The syscall counts come from a SEPARATE set of runs, whose CSV rows must
+  not be mixed into the ones above (section 16, item 3):
+
+    $ strace -c -f ./profile-test 4      5000 0 0
+    $ strace -c -f ./profile-test 4      5000 0 1
+    $ strace -c -f ./profile-test 524288 200  0 0
+    $ strace -c -f ./profile-test 524288 200  0 1
+
   Then back on the host:
 
     $ rsync -a -e 'ssh -p 2222' shawliu@localhost:~/advos-miniproj-2/results/ results/
     $ python3 scripts/aggregate.py          # results/csv -> report/figures
     $ cd report && latexmk -pdf main.tex
+    $ python3 scripts/make_experiment_log.py   # regenerates this file
+
+  Order matters only in that aggregate.py must run before the paper is built
+  and before this log is generated; both read what it writes. Running this log
+  generator alone is safe, because it runs aggregate.py itself first.
+
+  Expected wall time on the apparatus described above: the matrix is about
+  four minutes, part 1 is about 30 seconds (five sleep(5) trials dominate),
+  part 4a is instant, part 4b about three minutes, part 4c a few seconds.
 
   The figures are drawn by pgfplots directly from the .dat files at build time,
   so no plotting library is needed; a TeX installation is sufficient.
@@ -153,8 +209,146 @@ CONTENTS
   sets one allowed mask that both processes inherit, so "parent on core 0,
   child on core 1" is not expressible through it.
 
+  Invocation grammar, common to parts 2, 3 and 4b:
+
+    ./<bench> <label> [parent_cpu] [child_cpu]
+
+  The label names the output CSV, so two placements cannot overwrite each
+  other's data. Omitting the CPU arguments leaves affinity to the scheduler,
+  which is the "unpinned" configuration and not a missing value.
+
 ================================================================================
-5. PART 1 -- CLOCK SELECTION
+5. EXPERIMENT DESIGN AT A GLANCE
+================================================================================
+
+  Every run in this log, with what varies and what is held fixed.
+
+  Part  Benchmark        Independent variable(s)     Repetition
+  ----  ---------------  --------------------------  ---------------------
+  1     timer-test       clock API (3)               5 sleep trials, 1e6
+                                                     reads, 8 cores
+  2     latency-test     payload (10) x              20000/5000/500 reps per
+                         placement (3)               size, x5 launches
+  3     throughput-test  chunk (15) x                1 warmup + 5 trials per
+                         placement (3)               size, x5 launches
+  4a    capacity-test    write size (6)              fill to EAGAIN, 1 launch
+  4b    resize-test      capacity (5) x chunk (9)    3 trials per cell,
+                         x placement (2)             1 launch
+  4c    profile-test     payload (2) x               20000 reps at 4 B,
+                         placement (2)               500 at 512 KiB
+
+  Payloads and chunks both run 4 B to 512 KiB; part 3 adds five points
+  clustered around the 64 KiB capacity to the ten the assignment names.
+
+  Held fixed across all of it: one machine, one boot, one kernel, one build,
+  idle system, CLOCK_MONOTONIC as the clock, and the same two-pipe ping-pong
+  or one-way-stream structure per part.
+
+  Repetition counts per payload in part 2 are 20000 for payloads up to 4 KiB,
+  5000 up to 64 KiB, and 500 above that. They are chosen for how fast the
+  MINIMUM converges, not for an error bar on the mean, and they keep a full
+  sweep to a few seconds so that five independent launches are affordable.
+
+  Part 3 aims at 64 MiB of traffic per measurement, capped at 200000 writes so
+  that a 4-byte chunk does not turn into a 16-million-syscall run; that cap is
+  why the smallest chunks move less than 64 MiB. Part 4b moves 32 MiB per cell
+  for the same reason, with a floor of 16 writes.
+
+  STATISTICS POLICY, stated once and applied everywhere:
+
+    a time       -> minimum. Noise adds time; it never removes it.
+    a rate       -> maximum, which is the same rule seen through 1/x.
+    never        -> the arithmetic mean of a rate.
+    two levels   -> each launch reports its own internal minimum (or maximum),
+                    and the aggregation takes the minimum (maximum) again
+                    across the five launches.
+
+  Means are still recorded in the CSVs, and section 8 prints the mean/minimum
+  ratio next to the data, because the size of that gap is itself a result:
+  it is small when the pair shares a core and large when it does not, which
+  is the part 4c mechanism showing up in part 2's statistics.
+
+================================================================================
+6. DATA DICTIONARY -- EVERY CSV COLUMN
+================================================================================
+
+  results/csv/clock_precision.csv        long format, one metric per row
+    experiment        accuracy | resolution | cross_core
+    clock             clock_gettime | gettimeofday | cntvct_el0
+    metric            mean_call_ns          cost of one call, 1e6 reads
+                      smallest_nonzero_delta_ns  effective quantum
+                      zero_delta_fraction   share of adjacent reads that are
+                                            identical (see part 1: this is a
+                                            cost/quantum ratio, not coarseness)
+                      backward_deltas       count of non-monotonic steps
+                      samples               reads taken
+                      cpuN_skew_ns          counter offset read on CPU N
+                      frequency_hz          cntfrq_el0, hardware reported
+                      period_ns             1e9 / frequency_hz
+                      mean_seconds          measured duration of sleep(5)
+                      error_ppm             (measured - 5 s) / 5 s, in ppm
+    value             the number; units are carried in the metric name
+
+  results/csv/pipe_latency_<placement>-r<run>.csv   one row per payload
+    clock             always clock_gettime after part 1 settled the choice
+    payload_bytes     payload written by the parent, 4 .. 524288
+    reps              timed exchanges at this size, after 50 warmup exchanges
+    mean              ONE-WAY mean, i.e. mean round trip / 2, nanoseconds
+    min               ONE-WAY minimum, i.e. minimum round trip / 2
+    unit              ns
+
+  results/csv/pipe_throughput_<placement>-r<run>.csv  one row per chunk size
+    chunk_bytes       bytes per write() call
+    writes_per_run    write() calls in one timed run
+    total_bytes       chunk_bytes * writes_per_run, the volume moved
+    trials            timed runs behind the two statistics (5), after 1 warmup
+    mean_MiB_per_s    mean of the trial rates -- recorded, never plotted
+    max_MiB_per_s     best trial: the statistic the paper uses
+    mean_ns_per_write elapsed / writes_per_run, a per-call cost
+
+  results/csv/pipe_capacity.csv             one row per fill method
+    method            f_getpipe_sz | folklore_16_pages | single_byte_writes |
+                      chunk_<n>
+    bytes             bytes accepted before EAGAIN, or the reported capacity
+    pages_at_4096     bytes / page size
+    note              how the row was obtained
+
+  results/csv/pipe_resize_<placement>.csv   one row per (capacity, chunk) cell
+    requested_capacity   what F_SETPIPE_SZ was asked for
+    actual_capacity      what F_GETPIPE_SZ reported afterwards -- the kernel
+                         rounds up to a page and a power of two, so this is
+                         the value that is ever used in analysis
+    chunk_bytes          bytes per write()
+    total_bytes          volume moved in the cell
+    best_MiB_per_s       best of 3 trials
+    chunk_over_capacity  chunk_bytes / actual_capacity, the ratio the knee is
+                         predicted to sit at
+
+  results/csv/pipe_profile.csv              one row per (payload, placement)
+    config            same | cross | unpinned, derived from the CPU arguments
+    payload_bytes     payload per exchange
+    reps              round trips
+    wall_s            elapsed, parent's clock_gettime
+    ns_per_roundtrip  wall_s * 1e9 / reps
+    user_s            ru_utime, BOTH processes summed
+    system_s          ru_stime, both processes summed
+    unaccounted_s     wall - user - system: time neither process was running
+    vol_ctxsw         ru_nvcsw, both processes: blocking on a pipe
+    invol_ctxsw       ru_nivcsw, both processes: preemption
+    vol_ctxsw_per_rt  vol_ctxsw / reps
+
+  Because user_s and system_s sum two processes against one elapsed interval,
+  they can exceed wall_s when the two genuinely overlap, and unaccounted_s can
+  then come out slightly negative. Section 15 says what that means and how the
+  paper's table handles it.
+
+  report/figures/*.dat are whitespace-separated with a one-line header, which
+  is the form pgfplots reads directly. Column names there are the placement or
+  the configured capacity; the first column is always the independent
+  variable in bytes.
+
+================================================================================
+7. PART 1 -- CLOCK SELECTION
 ================================================================================
 
   VARIABLES   cause: the clock API. effects: accuracy against a known
@@ -215,7 +409,7 @@ CONTENTS
 
   - gettimeofday is disqualified: 97.86% of adjacent readings are
     identical, because two calls complete inside one microsecond tick. It
-    cannot resolve the 708 ns round trip that part 2 has to measure.
+    cannot resolve the 709 ns exchange part 2 has to measure.
 
   - The cycle counter is the cheapest to read (10.4 ns) but not the
     finest. cntfrq_el0 reports 24 MHz, a 41.67 ns period, and two
@@ -256,19 +450,29 @@ CONTENTS
     call is relative to one tick. cntvct_el0's high fraction and
     gettimeofday's high fraction have opposite causes: the first has a fine
     quantum and very cheap calls, the second has a quantum 24x coarser. Only
-    the second is disqualifying. The paper's Table 1 prints the predicted
-    value beside the measured one to make that explicit.
+    the second is disqualifying. figures/clock_table.tex prints the
+    predicted value 1 - call/quantum beside the measured fraction to make
+    that explicit; the paper shows the two quantities the choice turns on as
+    Figure 1 instead, for space.
 
   - Cross-core skew is at most 83 ns with no systematic step. The arm64
     generic timer is architecturally system-wide, so the per-core skew warning
     written for the x86 TSC does not apply here. Measured, not assumed.
 
-  - All three clocks recover sleep(5) as 5.0024 s and agree within 53 ppm. The
-    492 ppm excess is the wakeup latency of sleep() itself, not clock error --
-    which is exactly why three independent clocks agree on it.
+  - All three clocks recover sleep(5) as 5.0039 s and agree with each
+    other within 0.5 ppm. The shared 786 ppm excess over
+    five seconds is the wakeup latency of sleep() itself, not clock error --
+    which is exactly why three independent clocks agree on it. Accuracy
+    separates none of the three, so the decision falls entirely to
+    granularity -- which separates gettimeofday from the other two, and then
+    to portability, which separates those two from each other.
+
+  - No clock stepped backwards in 1,000,000 reads (backward_deltas = 0 for all
+    three), so monotonicity is measured here and not merely assumed from the
+    CLOCK_MONOTONIC name.
 
 ================================================================================
-6. PART 2 -- LATENCY
+8. PART 2 -- LATENCY
 ================================================================================
 
   VARIABLES   cause: payload size (4 B to 512 KiB, the sizes the assignment
@@ -351,30 +555,90 @@ CONTENTS
     
     Wrote pipe_latency_unpinned-r1.csv
 
-  Remaining runs (r2-r5 for each placement) are in results/raw/ and are
-  aggregated into report/figures/latency.dat by scripts/aggregate.py.
+  The other four launches per placement are in results/raw/ in full. Rather
+  than paste fifteen near-identical tables, every launch's number is given
+  below, read out of results/csv, so the aggregation can be checked by hand:
+  "kept" is the value that reaches the paper, "spread" is (max-min)/min across
+  the five launches, and "mean/min" is that launch set's best mean over its
+  best minimum.
+
+  latency, same -- one-way minimum, ns, one column per launch
+
+     payload        r1        r2        r3        r4        r5      kept   spread  mean/min
+           4     729.0     729.0     750.0     750.0     708.5     708.5     5.9%      1.10
+          16     729.0     729.0     750.0     770.5     729.0     729.0     5.7%      1.08
+          64     729.5     729.0     750.0     770.5     729.0     729.0     5.7%      1.08
+         256     750.0     729.0     750.0     750.0     729.0     729.0     2.9%      1.08
+        1024     750.0     750.0     770.5     750.0     750.0     750.0     2.7%      1.07
+        4096     812.5     791.5     833.0     833.0     812.5     791.5     5.2%      1.08
+       16384    1291.5    1270.5    1291.5    1312.5    1291.5    1270.5     3.3%      1.05
+       65536    3333.0    3270.5    3333.0    3333.0    3333.0    3270.5     1.9%      1.05
+      262144   13271.0   13479.5   13354.0   13437.5   13562.5   13271.0     2.2%      1.03
+      524288   26208.5   26729.5   26292.0   26541.5   26875.0   26208.5     2.5%      1.03
+
+  latency, cross -- one-way minimum, ns, one column per launch
+
+     payload        r1        r2        r3        r4        r5      kept   spread  mean/min
+           4    2229.5    4270.5    4104.0    2125.0    2041.5    2041.5   109.2%      5.47
+          16    4666.5    2083.5    2187.5    2083.5    2166.5    2083.5   124.0%      5.29
+          64    4166.5    3312.5    3708.0    2187.5    4438.0    2187.5   102.9%      5.17
+         256    3583.5    4083.0    4562.5    2042.0    2250.0    2042.0   123.4%      5.55
+        1024    3562.5    3833.5    4312.5    2208.5    4062.5    2208.5    95.3%      5.16
+        4096    2104.0    3625.0    4145.5    2812.5    2291.5    2104.0    97.0%      4.95
+       16384    6771.0    4500.0    6750.0    6500.0    4375.0    4375.0    54.8%      2.92
+       65536   11229.5    9750.0    9250.0    9479.0   10041.5    9250.0    21.4%      1.74
+      262144   57542.0   55042.0   56750.0   56229.5   56396.0   55042.0     4.5%      1.12
+      524288  106375.5  108771.5  110937.5  111979.5   72958.5   72958.5    53.5%      1.65
+
+  latency, unpinned -- one-way minimum, ns, one column per launch
+
+     payload        r1        r2        r3        r4        r5      kept   spread  mean/min
+           4    2125.0    4104.0    2167.0    3354.5    2145.5    2125.0    93.1%      5.16
+          16    3541.5    4229.0    2062.5    2166.5    2479.5    2062.5   105.0%      5.51
+          64    2229.0    3458.0    2291.5    2562.5    2041.5    2041.5    69.4%      5.65
+         256    3354.0    2125.0    3666.5    2187.5    2167.0    2125.0    72.5%      5.24
+        1024    3645.5    2104.5    2687.5    2625.0    2229.0    2104.5    73.2%      4.90
+        4096    2646.0    4125.5    2562.5    4395.5    2291.5    2291.5    91.8%      5.11
+       16384    6396.0    3833.5    6708.5    6520.5    6458.0    3833.5    75.0%      3.50
+       65536    9563.0   10063.0   10271.0    8104.5    7875.0    7875.0    30.4%      2.12
+      262144   56334.0   56146.5   54438.5   56646.5   57292.5   54438.5     5.2%      1.19
+      524288  110418.5  110314.0  113730.5  107689.0  113126.0  107689.0     5.6%      1.13
+
+  READING THE SPREAD. This is the empirical case for the minimum, and it is
+  not a small effect. Same core reproduces to within a few per cent from one
+  launch to the next and its mean sits within about a tenth of its minimum.
+  Cross core and unpinned spread by roughly a factor of two between launches
+  at small payloads, and their means run about five times their minima. Same
+  benchmark, same binary, same machine: the difference is entirely in what the
+  scheduler does to a pair that has to be woken on another core. Reporting
+  means here would have reported the contamination, and reporting a single
+  launch would have reported whichever contamination that launch happened to
+  get.
 
   FINDINGS
 
   - The predicted shape holds: flat below 4 KiB, linear above 16 KiB.
 
   - The unpredicted result is a constant vertical offset in the flat region.
-    Same core costs 708 ns per message; cross core costs 2042 ns. The 1333 ns
-    penalty does not vary with payload size, so it is not a copying cost.
+    Same core costs 709 ns per message, cross core
+    2042 ns. That 1333 ns penalty does not vary with
+    payload size, so it is not a copying cost.
     Part 4c shows it is time spent descheduled.
 
   - Unpinned runs track the cross-core curve, so the scheduler spreads a
     communicating pair across cores by default. A benchmark that does not
     control placement is therefore measuring the cross-core case silently.
 
-  - The slope of the same-core line above 16 KiB implies 19.2 GiB/s of copy
+  - The slope of the same-core line above 16 KiB implies 19.1 GiB/s of copy
     bandwidth. Derivation: a round trip copies the payload twice, once out of
     the writer on write() and once into the reader on read(), while the
     reported figure is half a round trip. The two factors of two cancel, so the
-    bandwidth is simply (largest payload) / (latency span).
+    bandwidth is simply (largest payload) / (latency span):
+    26209 ns - 709 ns = 25500 ns for 512 KiB,
+    which is 20.56 bytes per nanosecond.
 
 ================================================================================
-7. PART 3 -- THROUGHPUT
+9. PART 3 -- THROUGHPUT
 ================================================================================
 
   VARIABLES   cause: chunk size and placement. effect: sustained one-way
@@ -442,15 +706,103 @@ CONTENTS
     
     Wrote pipe_throughput_cross-r1.csv
 
+  OUTPUT (run 1 of 5, unpinned)
+    Pipe throughput, one way streaming, chunk sizes 4 B to 512 KiB
+    1 warmup run and 5 timed runs per chunk size
+    
+         chunk     writes  total (MiB)   mean (MiB/s)    max (MiB/s)    mean ns/write
+             4     200000         0.76          13.39          16.19           289.10
+            16     200000         3.05          67.54          77.89           230.69
+            64     200000        12.21         189.25         217.43           332.84
+           256     200000        48.83         771.96         852.78           318.76
+          1024      65536        64.00        3057.45        3258.20           320.90
+          4096      16384        64.00        4937.31        5291.89           793.60
+          8192       8192        64.00        4704.01        5128.56          1670.55
+         16384       4096        64.00        3994.94        4209.00          3934.47
+         32768       2048        64.00        2957.47        3227.13         10633.12
+         49152       1365        63.98        3153.09        3554.17         14998.16
+         65536       1024        64.00        2197.70        2461.38         28631.17
+         81920        819        63.98        1823.66        1903.70         42867.04
+        131072        512        64.00        1709.66        1764.47         73324.30
+        262144        256        64.00        1778.00        1835.15        140677.23
+        524288        128        64.00        1812.71        1909.03        276354.82
+    
+    Wrote pipe_throughput_unpinned-r1.csv
+
+  All five launches per placement, as for part 2:
+
+  throughput, same -- best MiB/s per launch, one column per launch
+
+       chunk        r1        r2        r3        r4        r5      kept   spread
+           4      12.2      12.1      12.4      12.5      12.5      12.5     3.3%
+          16      47.9      47.5      48.5      49.1      49.3      49.3     3.8%
+          64     194.3     192.8     195.3     195.9     195.7     195.9     1.7%
+         256     724.6     723.9     751.5     750.6     750.5     751.5     3.8%
+        1024    2446.9    2506.7    2511.5    2510.3    2504.2    2511.5     2.6%
+        4096    6107.9    6050.3    6348.3    6366.5    6285.2    6366.5     5.2%
+        8192    7723.1    7824.3    8008.4    8014.3    8047.5    8047.5     4.2%
+       16384    9078.4    9108.0    9298.1    9285.7    9329.2    9329.2     2.8%
+       32768    9503.2    9429.1    9605.9    9618.8    9668.5    9668.5     2.5%
+       49152    9558.9    9560.5    9483.8    9534.8    9608.5    9608.5     1.3%
+       65536    9592.8    9599.5    9560.6    9612.2    9678.4    9678.4     1.2%
+       81920    9551.5    9613.4    9572.3    9601.2    9633.8    9633.8     0.9%
+      131072    8946.8    9095.4    9014.9    9092.1    9099.2    9099.2     1.7%
+      262144    9102.2    9154.2    9301.1    9235.9    9295.8    9301.1     2.2%
+      524288    8944.4    9131.4    9424.9    9300.2    9333.9    9424.9     5.4%
+
+  throughput, cross -- best MiB/s per launch, one column per launch
+
+       chunk        r1        r2        r3        r4        r5      kept   spread
+           4      15.4      18.8      17.6      19.0      19.1      19.1    23.5%
+          16      79.9      59.0      68.8      66.4      58.6      79.9    36.4%
+          64     292.6     267.7     274.2     261.5     263.8     292.6    11.9%
+         256     916.3     956.9    1074.2    1074.2     971.0    1074.2    17.2%
+        1024    4235.7    4070.9    3875.2    4047.8    4020.7    4235.7     9.3%
+        4096    5209.7    5094.4    5306.6    5567.4    5134.1    5567.4     9.3%
+        8192    5540.2    6431.2    5609.2    5689.5    5943.5    6431.2    16.1%
+       16384    4882.4    4067.7    4769.3    4717.1    4247.5    4882.4    20.0%
+       32768    3267.2    5373.7    5595.7    3632.9    4115.3    5595.7    71.3%
+       49152    4214.0    3608.4    3697.1    4065.1    3667.1    4214.0    16.8%
+       65536    2334.9    2375.3    2137.8    2712.2    2338.9    2712.2    26.9%
+       81920    1902.0    2047.7    1974.3    2000.2    2012.7    2047.7     7.7%
+      131072    2014.0    2014.3    1849.2    2004.1    2004.0    2014.3     8.9%
+      262144    2027.4    2224.9    1872.8    1976.2    2042.6    2224.9    18.8%
+      524288    2391.0    2078.1    1954.8    1998.4    2086.6    2391.0    22.3%
+
+  throughput, unpinned -- best MiB/s per launch, one column per launch
+
+       chunk        r1        r2        r3        r4        r5      kept   spread
+           4      16.2      14.7      15.3      15.3      15.6      16.2    10.1%
+          16      77.9      73.6      64.2      75.9      55.1      77.9    41.4%
+          64     217.4     204.8     265.3     286.9     212.2     286.9    40.1%
+         256     852.8    1028.1    1074.1    1095.3    1062.1    1095.3    28.4%
+        1024    3258.2    3973.2    4092.0    4177.5    4196.9    4196.9    28.8%
+        4096    5291.9    4691.3    5307.8    4918.7    5737.3    5737.3    22.3%
+        8192    5128.6    4501.7    5476.4    6165.9    6436.9    6436.9    43.0%
+       16384    4209.0    4818.1    5505.4    5162.1    5395.3    5505.4    30.8%
+       32768    3227.1    4811.4    3267.0    3727.7    4020.1    4811.4    49.1%
+       49152    3554.2    3752.6    3503.2    4005.8    4105.8    4105.8    17.2%
+       65536    2461.4    2946.2    2365.0    2593.9    3264.1    3264.1    38.0%
+       81920    1903.7    3488.2    1955.9    1967.8    2053.6    3488.2    83.2%
+      131072    1764.5    1785.0    1967.8    1951.8    1983.6    1983.6    12.4%
+      262144    1835.2    1908.2    1967.9    1976.1    1949.6    1976.1     7.7%
+      524288    1909.0    1740.2    2000.7    2002.8    1965.8    2002.8    15.1%
+
+  The rate spread is far milder than part 2's latency spread, for a
+  structural reason: a throughput run streams 64 MiB and lasts tens of
+  milliseconds, so a scheduling stall is amortized over the whole transfer,
+  whereas a single 4-byte exchange lasting 700 ns is either clean or ruined.
+  The same noise is present in both; only the denominator differs.
+
   FINDINGS
 
   - The first half of the hypothesis is right and the second half is wrong.
 
-  - Cross core behaves as predicted: it peaks at 6431 MiB/s around 8 KiB and
-    collapses to 2391 MiB/s by 512 KiB.
+  - Cross core behaves as predicted: it peaks at 6431 MiB/s around
+    8 KiB and collapses to 2391 MiB/s by 512 KiB.
 
-  - Same core does NOT collapse. It climbs to 9678 MiB/s and stays flat through
-    chunks eight times the capacity. This falsifies the blocking explanation as
+  - Same core does NOT collapse. It climbs to 9678 MiB/s and stays
+    flat through chunks eight times the capacity. This falsifies the blocking explanation as
     stated: the same-core writer blocks exactly as often, the pipe being the
     same size, and pays nothing for it.
 
@@ -468,7 +820,7 @@ CONTENTS
   Parts 4a and 4b were designed to test that explanation rather than assert it.
 
 ================================================================================
-8. PART 4A -- MEASURING PIPE CAPACITY
+10. PART 4A -- MEASURING PIPE CAPACITY
 ================================================================================
 
   The explanation above is stated in terms of "the capacity", so the capacity
@@ -510,7 +862,7 @@ CONTENTS
     kernels that do, the byte count comes in far below the nominal size.
 
 ================================================================================
-9. PART 4B -- CAPACITY AS THE INDEPENDENT VARIABLE
+11. PART 4B -- CAPACITY AS THE INDEPENDENT VARIABLE
 ================================================================================
 
   A correlation observed at one fixed capacity is not evidence of a cause. So
@@ -556,23 +908,71 @@ CONTENTS
     (values are MiB/s, best of 3 trials)
     Wrote pipe_resize_same.csv
 
+  PROVENANCE NOTE. As with part 4c, the stdout above and the committed
+  results/csv/pipe_resize_*.csv are two SEPARATE executions of the same two
+  commands; the figure in the paper is built from the CSV. Same core, the two
+  executions agree to within a few per cent cell by cell. Cross core they
+  agree on shape and on every conclusion drawn below, but individual cells
+  move by tens of per cent -- which is the same cross-core run-to-run variance
+  section 8 quantifies, here with only three internal trials per cell and one
+  launch to damp it. The cross-core sweep is the weakest dataset in the
+  report for that reason, and it is used only for the position of the knee,
+  never for an absolute rate.
+
+  Derived from results/csv/pipe_resize_cross.csv, which is what Figure 3b
+  plots:
+
+      capacity       peak   at chunk    % of peak    % of peak
+       (bytes)    (MiB/s)    (bytes)       at cap   at 512 KiB
+    ----------------------------------------------------------
+          4096        232       1024          98%          81%
+         16384       4132       1024          18%          16%
+         65536       5651       8192          38%          37%
+        262144       8221      65536          56%          57%
+       1048576       9126      32768   not tested          83%
+
+  And the same reduction for the same-core sweep, which the paper does not
+  plot:
+
+      capacity       peak   at chunk    % of peak    % of peak
+       (bytes)    (MiB/s)    (bytes)       at cap   at 512 KiB
+    ----------------------------------------------------------
+          4096       3205     524288          85%         100%
+         16384       7344     131072          90%          99%
+         65536       9965     524288          95%         100%
+        262144      10895      65536         100%          99%
+       1048576      11239      32768   not tested          98%
+
   FINDINGS
 
-  - Cross core: the knee tracks the configured capacity. A 16 KiB pipe
-    collapses at 8 KiB chunks, a 64 KiB pipe at 64 KiB, a 256 KiB pipe at
-    256 KiB, and a 1 MiB pipe -- larger than any chunk tested -- never
-    collapses at all. The causal claim is established.
+  - Cross core: the knee tracks the configured capacity, and the table above
+    is the statement of it. Each capacity peaks at a chunk near or below its
+    own size, and by the time the chunk equals the capacity a 16 KiB pipe has
+    kept 18% of its peak, a 64 KiB pipe 38%, and a 256 KiB pipe 56%. The
+    1 MiB pipe is never given a chunk as large as itself -- 512 KiB is the
+    biggest the assignment asks for -- and correspondingly never collapses,
+    holding 83% of its peak at the largest chunk tested. The ordering is
+    monotone in capacity, which is what a causal relationship between the two
+    looks like.
+
+  - The 4 KiB pipe is a different and stronger statement. It never reaches
+    even 250 MiB/s at any chunk size, against roughly 9000 MiB/s for the 1 MiB
+    pipe: a factor of about forty, from nothing but the size of the buffer.
+    Capacity does not merely move the knee, it sets the ceiling.
 
   - Same core: no knee at any capacity. The curves rise and plateau, and a
-    larger pipe simply raises the plateau. Exactly what the overlap
-    explanation predicts, since there is no overlap to lose on one core.
+    larger pipe simply raises the plateau -- from about 3200 MiB/s at 4 KiB to
+    about 11000 MiB/s at 1 MiB. Exactly what the overlap explanation predicts,
+    since there is no overlap to lose on one core. The capacity still matters,
+    because it still sets how often the writer stops; what it does not do is
+    cause a collapse.
 
-  Only the cross-core panel is plotted in the paper (Figure 2b). The same-core
+  Only the cross-core panel is plotted in the paper (Figure 3b). The same-core
   sweep is five nearly flat lines; its information content is "no knee", which
   the text states in one sentence.
 
 ================================================================================
-10. PART 4C -- WHERE THE TIME GOES
+12. PART 4C -- WHERE THE TIME GOES
 ================================================================================
 
   Parts 4a and 4b establish WHICH variable controls the collapse. This part
@@ -630,6 +1030,20 @@ CONTENTS
       voluntary ctx sw           7992     (   15.98 / round trip)
       involuntary ctx sw            2     (    0.00 / round trip)
     
+
+  PROVENANCE NOTE, because the two do not match digit for digit. The stdout
+  above is one set of four clean runs. results/csv/pipe_profile.csv, which is
+  what Table 2 in the paper is built from, is a LATER set of four clean runs,
+  collected after the contaminated CSV was deleted and regenerated (section
+  16, item 3). Both sets are clean -- neither was straced -- and they are kept
+  separately rather than reconciled, because they are two independent
+  observations of the same configuration and the agreement between them is
+  itself evidence. Compare: same core at 4 B is 89.5% system and -0.5%
+  unaccounted above, 100.9% and -0.9% in the CSV; cross core at 4 B is 59.4%
+  unaccounted above and 61% in the CSV. Wall times differ by
+  about a tenth, which is ordinary run-to-run variance for this benchmark.
+  Nothing in the argument turns on the difference: the qualitative split --
+  same core accounted for, cross core mostly not -- reproduces exactly.
 
   The syscall breakdown comes from a SEPARATE set of runs under strace. Wall
   times from a straced run are not comparable to anything: ptrace stops both
@@ -692,13 +1106,26 @@ CONTENTS
      round trip. Same syscalls, same switches.
 
   2. Yet cross core is ten times slower in wall time, and the accounting says
-     where it went. Same core: 89-101% system time, ~0% unaccounted. Cross
-     core: 37-39% system time and 59-61% UNACCOUNTED -- neither user nor
-     kernel. That residue is the 1333 ns penalty from part 2. It is time spent
-     descheduled, waiting for a wakeup to be delivered to another core.
+     where the extra time went. Read straight out of pipe_profile.csv, with
+     user and system summing BOTH processes against one elapsed interval:
 
-  3. Voluntary context switches per round trip are 1.99 at 4 B and 15.99 at
-     512 KiB. Against the measured 64 KiB capacity that is exactly
+     payload   place       us/RT    %usr    %sys    %blk  vcsw/RT
+     ------------------------------------------------------------
+     4 B       same          2.3     0.0   100.9    -0.9     1.99
+     4 B       cross        23.0     2.5    36.8    60.7     2.00
+     512 KiB   same         58.9    13.8    87.9    -1.7    15.99
+     512 KiB   cross       346.8     0.0    53.4    46.6    15.99
+
+     Same core spends essentially all of its wall clock in the kernel, and
+     over 100% of it at 4 B because the two processes genuinely overlap.
+     Cross core spends most of its wall clock neither in user code nor in the
+     kernel. That residue is the 1333 ns penalty of part 2: time
+     spent descheduled, waiting for a wakeup to be delivered to another core.
+     It grows with the number of handoffs, not with the bytes moved.
+
+  3. Voluntary context switches per round trip are 1.99 at 4 B and
+     15.99 at 512 KiB. Against the measured 64 KiB capacity that is
+     exactly
 
          2 * ceil(payload / capacity)
 
@@ -716,13 +1143,115 @@ CONTENTS
   each handoff costs. Those two sentences are the paper's conclusion, and every
   clause in them is tied to a measured number above.
 
-  5. One methodological consequence. The mean/min gap in part 2 (means run 3-5x
-     the minimum) is this same blocked time appearing as a long tail. That is
-     the concrete reason the assignment's instruction to prefer the minimum is
-     correct here, and we report it as such rather than as a convention.
+  5. One methodological consequence, and it is a sharp one. The mean/min
+     column in section 8 is this same blocked time seen from the statistics
+     side. Same core, where the residue is ~0%, has means within
+     1.03-1.10 of its minima. Cross core, where the residue is
+     ~61%, has means around 5x its minima at small payloads. The two columns measure the same
+     phenomenon by different routes, and they agree. That is the concrete
+     reason the assignment's instruction to prefer the minimum is right here,
+     rather than a convention we followed because we were told to.
+
+  6. What this does NOT establish. getrusage attributes the residue to "not
+     running", not to any particular kernel path, so the identification of it
+     as wakeup and IPI cost is an inference from the placement variable, not a
+     direct measurement. A PMU or an ftrace sched_wakeup histogram would close
+     that gap; neither was available (see the tooling constraint above), and
+     the paper says so instead of implying counter data we do not have.
 
 ================================================================================
-11. DERIVED NUMBERS QUOTED IN THE PAPER
+13. AGGREGATED SERIES AS THEY ENTER THE PAPER
+================================================================================
+
+  These four files are the entire numeric content of the figures. They are
+  reproduced here so that the paper's plots can be read back as numbers
+  without a TeX installation, a plotting library, or this repository.
+
+  Reduction rule, once more: a value here is the best of five launches, and
+  each launch already reported the best of its own internal repetitions.
+  "Best" is the minimum for latency and the maximum for a rate.
+
+  OUTPUT (report/figures/clock.dat)
+    clock call quantum
+    cgt 20.23 41.00
+    gtod 22.76 1000.00
+    cntvct 10.41 41.67
+
+  OUTPUT (report/figures/latency.dat)
+    payload unpinned same cross
+    4 2125.0000 708.5000 2041.5000
+    16 2062.5000 729.0000 2083.5000
+    64 2041.5000 729.0000 2187.5000
+    256 2125.0000 729.0000 2042.0000
+    1024 2104.5000 750.0000 2208.5000
+    4096 2291.5000 791.5000 2104.0000
+    16384 3833.5000 1270.5000 4375.0000
+    65536 7875.0000 3270.5000 9250.0000
+    262144 54438.5000 13271.0000 55042.0000
+    524288 107689.0000 26208.5000 72958.5000
+
+  OUTPUT (report/figures/throughput.dat)
+    chunk unpinned same cross
+    4 16.1900 12.5300 19.0800
+    16 77.8900 49.3100 79.8800
+    64 286.8700 195.9400 292.5600
+    256 1095.2600 751.5000 1074.1900
+    1024 4196.9300 2511.4700 4235.7200
+    4096 5737.2600 6366.4800 5567.4200
+    8192 6436.9000 8047.5200 6431.1900
+    16384 5505.4500 9329.1600 4882.3600
+    32768 4811.3800 9668.4600 5595.6700
+    49152 4105.8200 9608.4600 4213.9600
+    65536 3264.1200 9678.3900 2712.1800
+    81920 3488.2400 9633.7800 2047.7100
+    131072 1983.6200 9099.2500 2014.3100
+    262144 1976.0800 9301.0700 2224.8600
+    524288 2002.7700 9424.9200 2390.9900
+
+  OUTPUT (report/figures/resize.dat)
+    chunk cap4096 cap16384 cap65536 cap262144 cap1048576
+    1024 231.7600 4132.0900 4248.2300 3286.1800 3392.0600
+    4096 227.3900 3116.6200 5598.5700 6713.1500 4845.5600
+    8192 169.0300 702.9700 5650.5500 7079.2500 7364.4700
+    16384 172.2400 749.9700 5617.5300 6729.9100 8503.2800
+    32768 175.9300 653.2600 3650.4700 7886.5300 9126.0400
+    65536 181.9900 649.9000 2131.8700 8220.8800 8668.9300
+    131072 184.4300 663.0300 2051.3100 8180.6800 8338.6800
+    262144 185.9300 663.7800 2090.2700 4595.3500 7802.8800
+    524288 187.2600 668.1200 2075.2800 4701.2700 7542.0000
+
+  And the macro file the paper's PROSE reads, so that no sentence in it
+  contains a number that was typed by hand:
+
+  OUTPUT (report/figures/numbers.tex)
+    %% Generated by scripts/aggregate.py -- do not edit.
+    \newcommand{\nCcCall}{10.4}
+    \newcommand{\nCcPeriod}{41.67}
+    \newcommand{\nCgtCall}{20.2}
+    \newcommand{\nCgtQuantum}{41}
+    \newcommand{\nCopyBW}{19.1}
+    \newcommand{\nCopySlope}{20.56}
+    \newcommand{\nCrossBlocked}{61}
+    \newcommand{\nCtxBig}{15.99}
+    \newcommand{\nCtxSmall}{1.99}
+    \newcommand{\nGtodCall}{22.8}
+    \newcommand{\nGtodZero}{97.9}
+    \newcommand{\nLatCrossSmall}{2042}
+    \newcommand{\nLatPenalty}{1333}
+    \newcommand{\nLatSameBig}{26209}
+    \newcommand{\nLatSameSmall}{709}
+    \newcommand{\nLatSpan}{25500}
+    \newcommand{\nSkewMax}{84}
+    \newcommand{\nSleepMean}{5.0039}
+    \newcommand{\nSleepOver}{786}
+    \newcommand{\nSleepSpread}{0.5}
+    \newcommand{\nThrCrossBig}{2391}
+    \newcommand{\nThrCrossPeak}{6431}
+    \newcommand{\nThrSamePeak}{9678}
+
+
+================================================================================
+14. DERIVED NUMBERS QUOTED IN THE PAPER
 ================================================================================
 
   Produced by scripts/aggregate.py from results/csv, never hand-copied.
@@ -731,7 +1260,8 @@ CONTENTS
     wrote report/figures/latency.dat (10 rows)
     wrote report/figures/throughput.dat (15 rows)
     wrote report/figures/resize.dat (9 rows)
-    wrote latency_table.tex, throughput_table.tex, clock_table.tex
+    wrote report/figures/clock.dat
+    wrote latency_table.tex, throughput_table.tex, clock_table.tex, headline_table.tex
     wrote report/figures/profile_table.tex
     wrote numbers.tex
     
@@ -744,15 +1274,93 @@ CONTENTS
       cross-core peak           6431 MiB/s
       cross-core at 512 KiB     2391 MiB/s
 
-  Mapping into the paper:
-    Table 1  <- results/csv/clock_precision.csv
-    Fig. 1   <- report/figures/latency.dat
-    Fig. 2a  <- report/figures/throughput.dat
-    Fig. 2b  <- report/figures/resize.dat
-    Table 2  <- report/figures/profile_table.tex (from pipe_profile.csv)
+  Mapping into the paper, by the labels the compiled PDF prints:
+
+    Fig. 1  clock call cost and quantum   <- figures/clock.dat
+    Fig. 2  latency against payload       <- figures/latency.dat
+    Tab. 1  the ten required sizes        <- figures/headline_table.tex
+    Fig. 3a throughput, default capacity  <- figures/throughput.dat
+    Fig. 3b throughput, capacity swept    <- figures/resize.dat
+    Tab. 2  where the wall clock goes     <- figures/profile_table.tex
+    prose   every quoted figure           <- figures/numbers.tex
+
+  aggregate.py also emits clock_table.tex, latency_table.tex and
+  throughput_table.tex. The paper does not \input them: the clock table was
+  replaced by Figure 1 and the two full data tables by the transposed
+  headline table, both to fit the two-page limit. They are still generated,
+  still correct, and are the fuller form of the same data for anyone who
+  wants it -- the per-launch tables in sections 8 and 9 cover the same ground
+  in this file.
 
 ================================================================================
-12. PROBLEMS ENCOUNTERED AND HOW THEY WERE RESOLVED
+15. THREATS TO VALIDITY AND KNOWN LIMITATIONS
+================================================================================
+
+  Stated here in full. The paper has room for three sentences of this; a lab
+  record should carry the rest.
+
+  1. VIRTUALIZATION. Everything ran in a QEMU/hvf guest. Absolute latencies
+     include hypervisor overhead, and the cross-core wakeup path in particular
+     involves a virtual IPI, which is likely to be more expensive than the
+     bare-metal equivalent. The cross-core PENALTY may therefore be inflated
+     relative to real hardware. What the design protects is the comparison:
+     both placements run under the same hypervisor on the same boot, so the
+     overhead is common to both arms. We would not quote the
+     709 ns figure as "the cost of a Linux pipe on Apple
+     silicon"; we quote it as the baseline that the 1333 ns penalty
+     is measured against.
+
+  2. ONE MACHINE, ONE KERNEL. Every number comes from one guest on one host.
+     Nothing here establishes that the effects generalize across
+     microarchitectures, and the arm64/x86-64 asymmetry in Timer.h is a
+     standing reminder that they might not. The second machine available to us
+     was deliberately not mixed in (section 2).
+
+  3. THE ACK IS ASYMMETRIC. Part 2 calls one-way latency half a round trip,
+     but the round trip is an N-byte write answered by a 1-byte ack. At 4 B
+     the two legs are near enough symmetric; at 512 KiB they are not, and the
+     halved figure understates the large-payload leg and overstates the ack
+     leg. Halving is the conventional estimate and we use it, but the copy
+     bandwidth derived from the slope is the number to trust at large
+     payloads, not the halved latency itself.
+
+  4. getrusage RESOLUTION. user_s and system_s are accounted at timer-tick
+     granularity, while wall_s comes from clock_gettime. Over a run of a few
+     tens of milliseconds that mismatch is enough to make user+system exceed
+     wall by a fraction of a per cent, which is why the same-core rows show a
+     small NEGATIVE unaccounted figure. The paper's table clamps that column
+     at zero and says what it is. The effect is under one per cent, and the
+     cross-core residue it is being compared against is around
+     61 per cent, so no conclusion rests on it. It is also
+     the reason system time can read above 100%: two processes are summed against
+     one elapsed interval, and on one core they alternate but their kernel
+     time still adds.
+
+  5. THE UNPINNED ANOMALY. Unpinned tracks cross core up to 256 KiB and is
+     then WORSE than either pinning at 512 KiB: 107689 ns against
+     cross core's 72958 ns (section 8). We do not have an
+     explanation. The honest reading is that the scheduler is free to migrate
+     either process mid-transfer, and a migration with a half-full pipe is
+     worse than either fixed placement. We say so in the paper rather than
+     quietly dropping the point.
+
+  6. NO HARDWARE COUNTERS. perf, ftrace and the PMU were all unavailable
+     (section 12). The time breakdown is getrusage plus strace, which can say
+     that time was spent not running but cannot name the kernel path. The
+     causal claim about capacity is carried instead by part 4b, where capacity
+     is manipulated rather than observed.
+
+  7. SINGLE READER, SINGLE WRITER, NO CONTENTION. One pipe, one pair of
+     processes, an idle machine. Nothing here says anything about many pipes,
+     many pairs, or a loaded system, and the scheduler behaviour that dominates
+     the cross-core case is exactly what a loaded system would change.
+
+  8. STRACE RUNS ARE NOT TIMING RUNS. Counts and relative shares only. The
+     wall times in results/raw/strace.txt are ptrace-inflated by construction
+     and are never quoted.
+
+================================================================================
+16. PROBLEMS ENCOUNTERED AND HOW THEY WERE RESOLVED
 ================================================================================
 
   Recorded because each one silently produced plausible-looking wrong data,
@@ -804,23 +1412,23 @@ CONTENTS
      emits the complete tabular environment rather than just its rows.
 
   6. THE PAPER'S TABLE 1 DISAGREED WITH THE COMMITTED CSV.
-     Table 1 and several numbers in the prose were typed in by hand from the
-     first timer-test run. Part 1 was later re-run -- after the latency
+     The clock table and several numbers in the prose were typed in by hand
+     from the first timer-test run. Part 1 was later re-run -- after the latency
      benchmark was trimmed -- and clock_precision.csv was regenerated, but the
      paper was not. The table went on quoting a 35.3 ns call cost and a 19.83%
      zero fraction while the committed CSV said 20.2 ns and 53.7%. Both runs
      were internally consistent, so nothing looked wrong; the paper simply
      described a run whose data had been replaced. Cross-core skew had drifted
      the same way, 400 ns in the prose against 83 ns in the data.
-     Fixed, and fixed structurally rather than by retyping: Table 1 is now
-     generated from clock_precision.csv, and scripts/aggregate.py additionally
+     Fixed, and fixed structurally rather than by retyping: the clock table
+     is now generated from clock_precision.csv, and scripts/aggregate.py additionally
      emits figures/numbers.tex, a set of LaTeX macros holding every figure the
      PROSE quotes. Re-running a benchmark now updates the sentences, not just
      the tables. This log takes its numbers from the same source.
 
   7. FIGURE COLOURS.
      The first draft let pgfplots cycle its default colours. With five curves
-     in Figure 2b the cycle repeated, drawing the 4 KiB and 1 MiB capacities --
+     in Figure 3b the cycle repeated, drawing the 4 KiB and 1 MiB capacities --
      the two extremes of the comparison -- in the same blue. Capacity is an
      ORDERED quantity, so the fix was not merely more colours but the right
      kind: a single-hue ramp stepped light to dark, with distinct marks as a
@@ -828,91 +1436,121 @@ CONTENTS
      rather than by eye.
 
 ================================================================================
-13. INDEX OF RAW OUTPUT FILES
+17. INDEX OF DATA FILES, WITH CHECKSUMS
 ================================================================================
 
-  results/raw/  (37 files)
+  Checksums are SHA-256, truncated to 16 hex digits, computed at generation
+  time. They are here so that a reader can tell whether the file they are
+  looking at is the one this log describes -- the failure mode in section 16
+  item 1 was a stale file that looked right, and a checksum would have caught
+  it immediately.
 
-    .gitkeep                                                   0 bytes
-    capacity.txt                                             651 bytes
-    clock-final.txt                                         1371 bytes
-    latency-cross-r1-20260921-211412.txt                     755 bytes
-    latency-cross-r2-20260921-211412.txt                     755 bytes
-    latency-cross-r3-20260921-211412.txt                     755 bytes
-    latency-cross-r4-20260921-211412.txt                     755 bytes
-    latency-cross-r5-20260921-211412.txt                     755 bytes
-    latency-same-r1-20260921-211412.txt                      754 bytes
-    latency-same-r2-20260921-211412.txt                      754 bytes
-    latency-same-r3-20260921-211412.txt                      754 bytes
-    latency-same-r4-20260921-211412.txt                      754 bytes
-    latency-same-r5-20260921-211412.txt                      754 bytes
-    latency-unpinned-r1-20260921-211412.txt                  758 bytes
-    latency-unpinned-r2-20260921-211412.txt                  758 bytes
-    latency-unpinned-r3-20260921-211412.txt                  758 bytes
-    latency-unpinned-r4-20260921-211412.txt                  758 bytes
-    latency-unpinned-r5-20260921-211412.txt                  758 bytes
-    profile.txt                                             1678 bytes
-    resize-cross.txt                                         696 bytes
-    resize-same.txt                                          694 bytes
-    strace.txt                                              2092 bytes
-    throughput-cross-r1-20260921-211412.txt                 1457 bytes
-    throughput-cross-r2-20260921-211412.txt                 1457 bytes
-    throughput-cross-r3-20260921-211412.txt                 1457 bytes
-    throughput-cross-r4-20260921-211412.txt                 1457 bytes
-    throughput-cross-r5-20260921-211412.txt                 1457 bytes
-    throughput-same-r1-20260921-211412.txt                  1456 bytes
-    throughput-same-r2-20260921-211412.txt                  1456 bytes
-    throughput-same-r3-20260921-211412.txt                  1456 bytes
-    throughput-same-r4-20260921-211412.txt                  1456 bytes
-    throughput-same-r5-20260921-211412.txt                  1456 bytes
-    throughput-unpinned-r1-20260921-211412.txt              1460 bytes
-    throughput-unpinned-r2-20260921-211412.txt              1460 bytes
-    throughput-unpinned-r3-20260921-211412.txt              1460 bytes
-    throughput-unpinned-r4-20260921-211412.txt              1460 bytes
-    throughput-unpinned-r5-20260921-211412.txt              1460 bytes
+  Naming: <benchmark>-<placement>-r<launch>-<collection timestamp>.txt. All
+  files from one run_matrix.sh invocation share the timestamp.
 
-  results/csv/
+  results/raw/  (36 files, 40382 bytes)
 
-    clock_precision.csv                                     1403 bytes
-    pipe_capacity.csv                                        398 bytes
-    pipe_latency_cross-r1.csv                                486 bytes
-    pipe_latency_cross-r2.csv                                485 bytes
-    pipe_latency_cross-r3.csv                                485 bytes
-    pipe_latency_cross-r4.csv                                485 bytes
-    pipe_latency_cross-r5.csv                                485 bytes
-    pipe_latency_same-r1.csv                                 463 bytes
-    pipe_latency_same-r2.csv                                 463 bytes
-    pipe_latency_same-r3.csv                                 463 bytes
-    pipe_latency_same-r4.csv                                 463 bytes
-    pipe_latency_same-r5.csv                                 463 bytes
-    pipe_latency_unpinned-r1.csv                             485 bytes
-    pipe_latency_unpinned-r2.csv                             486 bytes
-    pipe_latency_unpinned-r3.csv                             486 bytes
-    pipe_latency_unpinned-r4.csv                             485 bytes
-    pipe_latency_unpinned-r5.csv                             485 bytes
-    pipe_profile.csv                                         420 bytes
-    pipe_resize_cross.csv                                   2011 bytes
-    pipe_resize_same.csv                                    2037 bytes
-    pipe_throughput_cross-r1.csv                             765 bytes
-    pipe_throughput_cross-r2.csv                             764 bytes
-    pipe_throughput_cross-r3.csv                             766 bytes
-    pipe_throughput_cross-r4.csv                             766 bytes
-    pipe_throughput_cross-r5.csv                             764 bytes
-    pipe_throughput_same-r1.csv                              759 bytes
-    pipe_throughput_same-r2.csv                              759 bytes
-    pipe_throughput_same-r3.csv                              758 bytes
-    pipe_throughput_same-r4.csv                              758 bytes
-    pipe_throughput_same-r5.csv                              758 bytes
-    pipe_throughput_unpinned-r1.csv                          765 bytes
-    pipe_throughput_unpinned-r2.csv                          765 bytes
-    pipe_throughput_unpinned-r3.csv                          766 bytes
-    pipe_throughput_unpinned-r4.csv                          766 bytes
-    pipe_throughput_unpinned-r5.csv                          765 bytes
+    capacity.txt                                             651  62974394f6298e6f
+    clock-final.txt                                         1371  51fece90d4549f9a
+    latency-cross-r1-20260921-211412.txt                     755  1ef6844333a8d504
+    latency-cross-r2-20260921-211412.txt                     755  b8eeceb6f74ccd2e
+    latency-cross-r3-20260921-211412.txt                     755  6374d0ca515e3e7f
+    latency-cross-r4-20260921-211412.txt                     755  ef8f5a1a80110457
+    latency-cross-r5-20260921-211412.txt                     755  9371f750b98767d7
+    latency-same-r1-20260921-211412.txt                      754  c840c1115eb19ad8
+    latency-same-r2-20260921-211412.txt                      754  eb3685bf8c849709
+    latency-same-r3-20260921-211412.txt                      754  cb4242efe0098b1c
+    latency-same-r4-20260921-211412.txt                      754  ffd2529b45dea5ff
+    latency-same-r5-20260921-211412.txt                      754  f203346c54f0a11d
+    latency-unpinned-r1-20260921-211412.txt                  758  1ae8ae4734d870f7
+    latency-unpinned-r2-20260921-211412.txt                  758  ff363fd53df13853
+    latency-unpinned-r3-20260921-211412.txt                  758  4692a682bf165ba5
+    latency-unpinned-r4-20260921-211412.txt                  758  770d9cb4834b673c
+    latency-unpinned-r5-20260921-211412.txt                  758  663705086c32e689
+    profile.txt                                             1678  e9487a618c39d933
+    resize-cross.txt                                         696  57577a4f95af70c2
+    resize-same.txt                                          694  2b7c62a39c937683
+    strace.txt                                              2092  998749631fd67f04
+    throughput-cross-r1-20260921-211412.txt                 1457  220713ece416069f
+    throughput-cross-r2-20260921-211412.txt                 1457  4bc21f4a78ef38d0
+    throughput-cross-r3-20260921-211412.txt                 1457  7eaf59b431a11e1c
+    throughput-cross-r4-20260921-211412.txt                 1457  fe89b718875cc5c9
+    throughput-cross-r5-20260921-211412.txt                 1457  80ad788e82d89841
+    throughput-same-r1-20260921-211412.txt                  1456  7c930cf92208c4c0
+    throughput-same-r2-20260921-211412.txt                  1456  4f40628b5e4eb58f
+    throughput-same-r3-20260921-211412.txt                  1456  96e55769103260b8
+    throughput-same-r4-20260921-211412.txt                  1456  b51451eb47e97f26
+    throughput-same-r5-20260921-211412.txt                  1456  06eeebf805ef653e
+    throughput-unpinned-r1-20260921-211412.txt              1460  573bce106468977e
+    throughput-unpinned-r2-20260921-211412.txt              1460  4ef1606ccf4a506e
+    throughput-unpinned-r3-20260921-211412.txt              1460  85e2f73290c28851
+    throughput-unpinned-r4-20260921-211412.txt              1460  8af46052f2c8c4da
+    throughput-unpinned-r5-20260921-211412.txt              1460  2c1d14aca1c505d3
+
+  results/csv/  (35 files, 24881 bytes)
+
+    clock_precision.csv                                     1403  9d849d3e23f44790
+    pipe_capacity.csv                                        398  751929eb5e647f55
+    pipe_latency_cross-r1.csv                                486  89aec630b79f22b3
+    pipe_latency_cross-r2.csv                                485  dfe7f8591933f264
+    pipe_latency_cross-r3.csv                                485  ab13a74eda2fb8ba
+    pipe_latency_cross-r4.csv                                485  5adc4d205b1cb4e8
+    pipe_latency_cross-r5.csv                                485  9277422483f601f1
+    pipe_latency_same-r1.csv                                 463  ea95ffaa95435021
+    pipe_latency_same-r2.csv                                 463  1ce99361bec8ead7
+    pipe_latency_same-r3.csv                                 463  4cee4ffa40edad6f
+    pipe_latency_same-r4.csv                                 463  d1e359a47bdae1a6
+    pipe_latency_same-r5.csv                                 463  66f6c266fae7df82
+    pipe_latency_unpinned-r1.csv                             485  908d8b2505804814
+    pipe_latency_unpinned-r2.csv                             486  e38c4b60efb27b88
+    pipe_latency_unpinned-r3.csv                             486  2680b7d8b48a8481
+    pipe_latency_unpinned-r4.csv                             485  c853671699d45f2b
+    pipe_latency_unpinned-r5.csv                             485  26e9724b487b4288
+    pipe_profile.csv                                         420  562b487172d9759f
+    pipe_resize_cross.csv                                   2011  c4eaed4c91ebf40d
+    pipe_resize_same.csv                                    2037  b7ed32803288c7b5
+    pipe_throughput_cross-r1.csv                             765  c60f76d0d999eb33
+    pipe_throughput_cross-r2.csv                             764  f2358c26ca862bad
+    pipe_throughput_cross-r3.csv                             766  aea023ff1ce13761
+    pipe_throughput_cross-r4.csv                             766  0a0e6b38c636ae5b
+    pipe_throughput_cross-r5.csv                             764  6119025b4b02c947
+    pipe_throughput_same-r1.csv                              759  88863733f7ba137b
+    pipe_throughput_same-r2.csv                              759  659f23632eea1134
+    pipe_throughput_same-r3.csv                              758  de969e09c3070330
+    pipe_throughput_same-r4.csv                              758  900c8e11b577b571
+    pipe_throughput_same-r5.csv                              758  856fb6c733aa8e5b
+    pipe_throughput_unpinned-r1.csv                          765  aa135fb4b842cde3
+    pipe_throughput_unpinned-r2.csv                          765  a16ec0bd56353006
+    pipe_throughput_unpinned-r3.csv                          766  d3c6ac9a2d818f5f
+    pipe_throughput_unpinned-r4.csv                          766  e78aa43e1f9d804a
+    pipe_throughput_unpinned-r5.csv                          765  6aa844fbd2ea2412
+
+  report/figures/  (generated from results/csv)
+
+    clock.dat                                                 73  830eff2005a499d2
+    clock_table.tex                                          335  666e35ec8de242de
+    headline_table.tex                                       530  ad6fdc68ec7f3159
+    latency.dat                                              377  b4f5bcc662a4d0b4
+    latency_table.tex                                        456  bb62fa99aabaf4da
+    numbers.tex                                              767  3f4d4e6836ac5a6f
+    profile_table.tex                                        316  d5a9d095b93b26e7
+    resize.dat                                               541  840c2417bb311c0a
+    throughput.dat                                           538  7a55fa53600b9903
+    throughput_table.tex                                     585  ee373fa7c4896d2f
 
 ================================================================================
-14. COMMIT HISTORY
+18. COMMIT HISTORY
 ================================================================================
 
+  Branch: benchmarks  HEAD: 4f25d75
+  Full history, newest first. The data commits are the ones to
+  check a number against: anything committed after them only
+  reshapes the presentation.
+
+  4f25d75  2026-09-21  style(report): hoist axis options into one pgfplots style and centre legends below each axis
+  fe756d6  2026-09-21  updated
+  8ccb7c1  2026-09-21  Add AI attribution section
+  e2c47dc  2026-09-21  Generate every reported number from the CSVs; revise figures and tables
   5d44493  2026-09-21  Restore report/main.pdf
   d8409d6  2026-09-21  Write the paper and the full experiment log
   5ee1d31  2026-09-21  Add syscall and context-switch profiling; drop redundant clock sweep

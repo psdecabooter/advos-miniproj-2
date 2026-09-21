@@ -15,6 +15,7 @@ because averaging rates is not meaningful.
 """
 import csv
 import glob
+import math
 import os
 import collections
 
@@ -42,6 +43,16 @@ def collect(stem, key_col, val_col, reduce_fn):
     return {c: {k: reduce_fn(v) for k, v in d.items()} for c, d in acc.items()}
 
 
+def half_up(x):
+    """Round .5 away from zero.
+
+    Python rounds half to even, which made the headline table disagree with
+    itself: 708.5 became 708 and 2041.5 became 2042, so the printed cross-core
+    penalty did not equal the printed difference of the two printed values.
+    """
+    return int(math.floor(x + 0.5))
+
+
 def write_dat(name, header, keys, columns):
     path = os.path.join(OUT, name)
     with open(path, "w") as fh:
@@ -50,6 +61,9 @@ def write_dat(name, header, keys, columns):
             fh.write(" ".join([str(k)] + ["%.4f" % c[k] for c in columns]) + "\n")
     print("wrote", os.path.relpath(path, ROOT), "(%d rows)" % len(keys))
 
+
+
+ORDER = ["clock_gettime", "gettimeofday", "cntvct_el0"]
 
 
 def emit_clock_table(path):
@@ -67,7 +81,7 @@ def emit_clock_table(path):
         for r in csv.DictReader(fh):
             d[(r["clock"], r["metric"])] = float(r["value"])
 
-    order = ["clock_gettime", "gettimeofday", "cntvct_el0"]
+    order = ORDER
     with open(path, "w") as fh:
         fh.write("\\begin{tabular}{lrrrr}\n\\toprule\n")
         fh.write("Clock & Call & Quantum & Zero & Predicted \\\\\n")
@@ -81,6 +95,20 @@ def emit_clock_table(path):
                         100 * (1 - call / q)))
         fh.write("\\bottomrule\n\\end{tabular}\n")
     return d
+
+
+def emit_clock_dat(path, clk):
+    """Figure 1 data.  Call cost and quantum for the three candidate clocks,
+    which are the two quantities the choice of clock turns on."""
+    short = {"clock_gettime": "cgt", "gettimeofday": "gtod",
+             "cntvct_el0": "cntvct"}
+    with open(path, "w") as fh:
+        fh.write("clock call quantum\n")
+        for c in ORDER:
+            fh.write("%s %.2f %.2f\n"
+                     % (short[c], clk[(c, "mean_call_ns")],
+                        clk[(c, "smallest_nonzero_delta_ns")]))
+    print("wrote", os.path.relpath(path, ROOT))
 
 
 def emit_data_table(path, datfile, key_label, unit, fmt="%.0f"):
@@ -102,6 +130,42 @@ def emit_data_table(path, datfile, key_label, unit, fmt="%.0f"):
         fh.write("\\bottomrule\n\\end{tabular}\n")
 
 
+# The ten sizes the assignment names.  Both sweeps were run over supersets of
+# this list; the paper's data table reports exactly these so a reader can check
+# the required points without reading them off a log axis.
+REQUIRED_SIZES = [4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 524288]
+
+
+def emit_headline_table(path, lat, thr):
+    """Both sweeps at the required sizes, transposed so the ten sizes run
+    across the page.  The upright form needs more vertical space than a
+    two-page paper has; this one spans the columns in four rows."""
+    def label(n):
+        for div, suf in ((1 << 20, "M"), (1 << 10, "K")):
+            if n >= div:
+                return "%d%s" % (n // div, suf)
+        return "%d" % n
+
+    def row(name, series, key):
+        return "%s & %s \\\\\n" % (name, " & ".join(
+            "%d" % half_up(series[key][n]) for n in REQUIRED_SIZES))
+
+    with open(path, "w") as fh:
+        fh.write("\\begin{tabular}{l%s}\n\\toprule\n"
+                 % ("r" * len(REQUIRED_SIZES)))
+        fh.write("Size (B) & %s \\\\\n\\midrule\n"
+                 % " & ".join(label(n) for n in REQUIRED_SIZES))
+        fh.write("Latency, same core (ns) & %s"
+                 % row("", lat, "same").lstrip(" &"))
+        fh.write("Latency, cross core (ns) & %s"
+                 % row("", lat, "cross").lstrip(" &"))
+        fh.write("Throughput, same core (MiB/s) & %s"
+                 % row("", thr, "same").lstrip(" &"))
+        fh.write("Throughput, cross core (MiB/s) & %s"
+                 % row("", thr, "cross").lstrip(" &"))
+        fh.write("\\bottomrule\n\\end{tabular}\n")
+
+
 def emit_numbers(path, lat, thr, clk, sizes):
     """Every figure the prose quotes, as LaTeX macros.
 
@@ -120,11 +184,20 @@ def emit_numbers(path, lat, thr, clk, sizes):
     blk = prof[("cross", 4)]
     blkpct = 100 * float(blk["unaccounted_s"]) / float(blk["wall_s"])
 
+    # The sleep(5) cross-check.  What it establishes is that the three clocks
+    # agree with each other; the shared excess over five seconds is sleep()
+    # overshooting its deadline, which is a property of the scheduler and not
+    # of any clock, so it is reported separately rather than as clock error.
+    secs = [clk[(c, "mean_seconds")] for c in ORDER]
+    spread_ppm = 1e6 * (max(secs) - min(secs)) / min(secs)
+    overshoot_ppm = sum(clk[(c, "error_ppm")] for c in ORDER) / len(ORDER)
+
     vals = {
-        "LatSameSmall":  "%.0f" % lat["same"][4],
-        "LatCrossSmall": "%.0f" % lat["cross"][4],
-        "LatPenalty":    "%.0f" % (lat["cross"][4] - lat["same"][4]),
-        "LatSameBig":    "%.0f" % lat["same"][big],
+        "LatSameSmall":  "%d" % half_up(lat["same"][4]),
+        "LatCrossSmall": "%d" % half_up(lat["cross"][4]),
+        "LatPenalty":    "%d" % (half_up(lat["cross"][4])
+                                 - half_up(lat["same"][4])),
+        "LatSameBig":    "%d" % half_up(lat["same"][big]),
         "LatSpan":       "%.0f" % span,
         "CopyBW":        "%.1f" % (big / (span * 1.073741824)),
         "CopySlope":     "%.2f" % (big / span),
@@ -134,12 +207,16 @@ def emit_numbers(path, lat, thr, clk, sizes):
         "GtodZero":      "%.1f" % (100 * clk[("gettimeofday", "zero_delta_fraction")]),
         "CgtCall":       "%.1f" % clk[("clock_gettime", "mean_call_ns")],
         "CcCall":        "%.1f" % clk[("cntvct_el0", "mean_call_ns")],
+        "GtodCall":      "%.1f" % clk[("gettimeofday", "mean_call_ns")],
         "CgtQuantum":    "%.0f" % clk[("clock_gettime", "smallest_nonzero_delta_ns")],
         "CcPeriod":      "%.2f" % clk[("cntvct_el0", "smallest_nonzero_delta_ns")],
-        "SkewMax":       "%.0f" % skew,
+        "SkewMax":       "%d" % int(math.ceil(skew)),
         "CtxSmall":      "%.2f" % float(prof[("same", 4)]["vol_ctxsw_per_rt"]),
         "CtxBig":        "%.2f" % float(prof[("same", 524288)]["vol_ctxsw_per_rt"]),
         "CrossBlocked":  "%.0f" % blkpct,
+        "SleepMean":     "%.4f" % (sum(secs) / len(secs)),
+        "SleepSpread":   "%.1f" % spread_ppm,
+        "SleepOver":     "%.0f" % overshoot_ppm,
     }
     with open(path, "w") as fh:
         fh.write("%% Generated by scripts/aggregate.py -- do not edit.\n")
@@ -182,8 +259,11 @@ def main():
                     "Payload", "one-way latency (ns)")
     emit_data_table(os.path.join(OUT, "throughput_table.tex"), "throughput.dat",
                     "Chunk", "throughput (MiB/s)")
+    emit_headline_table(os.path.join(OUT, "headline_table.tex"), lat, thr)
     clk = emit_clock_table(os.path.join(OUT, "clock_table.tex"))
-    print("wrote latency_table.tex, throughput_table.tex, clock_table.tex")
+    emit_clock_dat(os.path.join(OUT, "clock.dat"), clk)
+    print("wrote latency_table.tex, throughput_table.tex, clock_table.tex,"
+          " headline_table.tex")
 
     # Table 3: the time breakdown.  Emitted as a LaTeX fragment so the numbers
     # in the paper cannot drift from the numbers that were measured.
