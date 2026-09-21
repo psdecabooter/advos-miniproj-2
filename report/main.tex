@@ -321,4 +321,19 @@ Table~\ref{tab:time} rests on \texttt{getrusage} and \texttt{strace} rather
 than hardware counters. We report the residue as blocked because it is neither
 user nor system time, not because a counter placed it there.
 
+\section{Use of AI tools}
+
+We used an AI coding assistant in three roles. It helped verify code
+revisions, reviewing the benchmark sources for defects and checking that
+changes behaved as intended. It helped conduct the experiments, driving the
+measurement sweeps across the placement and capacity matrices and aggregating
+the resulting CSVs into the tables and figures reported here. And we used it
+to brainstorm, particularly in working out which follow-up experiments would
+distinguish competing explanations for the throughput collapse.
+
+The experimental design, the interpretation of the results and the claims made
+in this paper are our own, and we take responsibility for them. Every number
+reported here was produced by a committed benchmark on the machine described
+in Section~2 and is reproducible from the committed data.
+
 \end{document}
