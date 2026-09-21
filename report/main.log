@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  21 SEP 2026 16:39
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  21 SEP 2026 16:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -686,9 +686,9 @@ ks.code.tex
 File: pgflibraryplotmarks.code.tex 2023-01-15 v3.1.10 (3.1.10)
 ))) (./figures/numbers.tex)
 Package translations Info: No language package found. I am going to use `englis
-h' as default language. on input line 34.
+h' as default language. on input line 38.
 LaTeX Font Info:    Trying to load font information for OT1+ptm on input line 3
-4.
+8.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ot1ptm.fd
 File: ot1ptm.fd 2001/06/04 font definitions for OT1/ptm.
@@ -701,20 +701,20 @@ File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 (./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 38.
+LaTeX Font Info:    ... okay on input line 38.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -750,20 +750,20 @@ LaTeX Font Info:    ... okay on input line 34.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-LaTeX Info: Redefining \microtypecontext on input line 34.
-Package microtype Info: Applying patch `item' on input line 34.
-Package microtype Info: Applying patch `toc' on input line 34.
-Package microtype Info: Applying patch `eqnum' on input line 34.
-Package microtype Info: Applying patch `footnote' on input line 34.
-Package microtype Info: Applying patch `verbatim' on input line 34.
-LaTeX Info: Redefining \microtypesetup on input line 34.
+LaTeX Info: Redefining \microtypecontext on input line 38.
+Package microtype Info: Applying patch `item' on input line 38.
+Package microtype Info: Applying patch `toc' on input line 38.
+Package microtype Info: Applying patch `eqnum' on input line 38.
+Package microtype Info: Applying patch `footnote' on input line 38.
+Package microtype Info: Applying patch `verbatim' on input line 38.
+LaTeX Info: Redefining \microtypesetup on input line 38.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 34.
+LaTeX Info: Redefining \showhyphens on input line 38.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
@@ -800,13 +800,13 @@ File: translations-basic-dictionary-english.trsl (english translation file `tra
 nslations-basic-dictionary')
 )
 Package translations Info: loading dictionary `translations-basic-dictionary' f
-or `english'. on input line 34.
+or `english'. on input line 38.
 
 Package pgfplots notification 'compat/show suggested version=true': document ha
 s been generated with the most recent feature set (\pgfplotsset{compat=1.18}).
 
 LaTeX Font Info:    Trying to load font information for OT1+ztmcm on input line
- 36.
+ 40.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ot1ztmcm.fd
 File: ot1ztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OT1/ztmcm.
 )
@@ -815,60 +815,77 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Trying to load font information for OML+ztmcm on input line
- 36.
+ 40.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/omlztmcm.fd
 File: omlztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OML/ztmcm.
 )
 LaTeX Font Info:    Trying to load font information for OMS+ztmcm on input line
- 36.
+ 40.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/omsztmcm.fd
 File: omsztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OMS/ztmcm.
 )
 LaTeX Font Info:    Trying to load font information for OMX+ztmcm on input line
- 36.
+ 40.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/omxztmcm.fd
 File: omxztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OMX/ztmcm.
 )
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <12> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 36.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 40.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <9> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 36.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 40.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <7> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 36.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 40.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `cmtt' (encoding: OT1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10.95> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 76.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 76.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <6> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 76.
+LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 7
+8.
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-
-
-Overfull \hbox (12.1194pt too wide) in paragraph at lines 74--79
+(/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ts1ptm.fd
+File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
+)
+Overfull \hbox (12.1194pt too wide) in paragraph at lines 72--85
 []\OT1/ptm/m/n/10.95 (-20) We com-pared \OT1/cmtt/m/n/10.95 clock[]gettime(CLOC
 K[]MONOTONIC)\OT1/ptm/m/n/10.95 (-20) ,
  []
 
-LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10.95> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 80.
-LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 80.
-LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <6> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 80.
 
-Underfull \hbox (badness 3503) in paragraph at lines 88--93
-[]\OT1/ptm/m/n/10.95 (+20) The cy-cle counter is cheap-est to read but
+Underfull \hbox (badness 1755) in paragraph at lines 72--85
+\OT1/ptm/m/n/10.95 (+20) all three re-cov-ered [][] and agreed within
  []
 
 
-Underfull \hbox (badness 7869) in paragraph at lines 88--93
-\OT1/ptm/m/n/10.95 (+20) not finest: \OT1/cmtt/m/n/10.95 cntfrq[]el0 \OT1/ptm/m
-/n/10.95 (+20) re-ports [][], a
+
+Package pgfplots info on input line 106: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+Package pgfplots info on input line 106: Using 'lua backend=false' for axis: ym
+ode=log unsupported (yet).
+PGFPlots: reading {figures/latency.dat}
+PGFPlots: reading {figures/latency.dat}
+PGFPlots: reading {figures/latency.dat}
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <5> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 111.
+Package pgfplots info on input line 120: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+PGFPlots: reading {figures/throughput.dat}
+PGFPlots: reading {figures/throughput.dat}
+
+Overfull \hbox (4.17671pt too wide) in paragraph at lines 129--131
+ [][] 
  []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 
@@ -877,114 +894,65 @@ ocal/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
 
 ]
-(./figures/clock_table.tex
-LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <5> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 1.
-)
-LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 1
-23.
 
-(/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ts1ptm.fd
-File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
-)
+(./figures/profile_table.tex)
+Package pgfplots info on input line 191: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+PGFPlots: reading {figures/resize.dat}
+PGFPlots: reading {figures/resize.dat}
+PGFPlots: reading {figures/resize.dat}
+PGFPlots: reading {figures/resize.dat}
+PGFPlots: reading {figures/resize.dat}
 
-Package pgfplots info on input line 155: Using 'lua backend=false' for axis: xm
-ode=log unsupported (yet).
-Package pgfplots info on input line 155: Using 'lua backend=false' for axis: ym
-ode=log unsupported (yet).
-PGFPlots: reading {figures/latency.dat}
-PGFPlots: reading {figures/latency.dat}
-PGFPlots: reading {figures/latency.dat}
-(./figures/latency_table.tex)
-Package pgfplots info on input line 184: Using 'lua backend=false' for axis: xm
-ode=log unsupported (yet).
-PGFPlots: reading {figures/throughput.dat}
-PGFPlots: reading {figures/throughput.dat}
-
-Overfull \hbox (4.17671pt too wide) in paragraph at lines 193--196
+Overfull \hbox (4.17479pt too wide) in paragraph at lines 199--201
  [][] 
  []
 
 
-
-[2] (./figures/throughput_table.tex)
-Package pgfplots info on input line 234: Using 'lua backend=false' for axis: xm
-ode=log unsupported (yet).
-PGFPlots: reading {figures/resize.dat}
-PGFPlots: reading {figures/resize.dat}
-PGFPlots: reading {figures/resize.dat}
-PGFPlots: reading {figures/resize.dat}
-PGFPlots: reading {figures/resize.dat}
-
-Overfull \hbox (4.17479pt too wide) in paragraph at lines 242--246
- [][] 
- []
-
-
-Underfull \vbox (badness 1102) has occurred while \output is active []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 
-
-Underfull \hbox (badness 4429) in paragraph at lines 266--273
-[]\OT1/ptm/m/n/10.95 (+20) Table 4[] ac-counts for the wall clock with
- []
-
-
-
-[3] (./figures/profile_table.tex)
-Overfull \hbox (4.19283pt too wide) in paragraph at lines 1--297
- [][] 
- []
-
-
-Underfull \hbox (badness 1571) in paragraph at lines 312--317
-[]\OT1/ptm/m/n/10.95 (+20) The prac-ti-cal con-se-quence is coun-ter-in-tu-itiv
-e.
- []
-
-
+[2]
 
 
 
 - LAST -
-Extra skip:0.0pt
-Left:470.95016pt/2.37057pt
-Right:465.57964pt/0.0pt
-Split: 469.5649pt
-Output:469.5649pt
-Pageshrink: 0.98547pt
-Pagestretch: 8.91296pt
+Extra skip:40.90382pt
+Left:49.53325pt/2.37057pt
+Right:11.0pt/0.0pt
+Split: 31.56662pt
+Output:31.56662pt
+Pageshrink: 0.0pt
+Pagestretch: 0.0pt
 @colht:650.43001pt
-FLUSHEND [output]: 469.5649pt
-FLUSHEND [leftcolumn badness]: 2
-FUSHEND [rightcolumn badness]: 6
-[4] (./main.aux)
+FLUSHEND [output]: 31.56662pt
+FLUSHEND [leftcolumn badness]: 1000000
+FUSHEND [rightcolumn badness]: 10000
+[3] (./main.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 30082 strings out of 473190
- 785804 string characters out of 5715801
- 1313296 words of memory out of 5000000
- 52642 multiletter control sequences out of 15000+600000
- 608984 words of font info for 255 fonts, out of 8000000 for 9000
+ 29996 strings out of 473190
+ 784470 string characters out of 5715801
+ 1311040 words of memory out of 5000000
+ 52611 multiletter control sequences out of 15000+600000
+ 608176 words of font info for 224 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  99i,19n,105p,1001b,2256s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb>
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb><
-/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt9.pfb></u
-sr/local/texlive/2025/texmf-dist/fonts/type1/urw/symbol/usyr.pfb></usr/local/te
-xlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2025
-/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2025/texmf-dis
-t/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (4 pages, 118253 bytes).
+/usr/local/texlive/2025/texmf-dist/fonts/type1/urw/symbol/usyr.pfb></usr/local/
+texlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/20
+25/texmf-dist/fonts/type1/urw/times/utmr8a.pfb>
+Output written on main.pdf (3 pages, 88876 bytes).
 PDF statistics:
- 61 PDF objects out of 1000 (max. 8388607)
- 38 compressed objects within 1 object stream
+ 48 PDF objects out of 1000 (max. 8388607)
+ 30 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 72205 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 71693 words of extra memory for PDF output out of 74296 (max. 10000000)
 

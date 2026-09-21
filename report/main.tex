@@ -11,7 +11,7 @@
 \usepackage{xcolor}
 
 % Palettes below were checked with a colour-vision validator rather than by eye.
-% Figure 1 and 2(a) are categorical (identity: which placement).  Figure 2(b) is
+% Figures 1 and 2 are categorical (identity: which placement).  Figure 3 is
 % ordinal -- capacity is an ordered magnitude -- so it takes a single-hue ramp
 % stepped light to dark, never cycled categorical hues.  Marks differ per series
 % as well, so identity never rests on colour alone.
@@ -26,6 +26,10 @@
 
 \input{figures/numbers.tex}
 
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{4pt}
+
 \setlength{\droptitle}{-3em}
 \title{Evaluation of IPC through Linux Pipes}
 \author{Patrick DeCabooter and Shaw Liu}
@@ -38,150 +42,82 @@
 \section{Introduction}
 
 The UNIX pipe is the oldest IPC mechanism still in daily use, and its cost
-model is usually taken on faith: sixteen pages of buffer, writers block when
-it fills, larger writes amortize better. We measured those claims and then
-asked where the time goes.
-
-The dominant variable turns out to be \emph{placement}, not payload size. Two
-processes exchanging four bytes cost \SI{\nLatSameSmall}{ns} per message on
-one core and \SI{\nLatCrossSmall}{ns} across two, for identical work and identical system-call counts;
-the difference is entirely time spent descheduled. The same asymmetry governs
-bandwidth: the familiar throughput collapse at the pipe capacity happens only
-across cores. We establish capacity as its cause by varying it directly.
+model is usually taken on faith. The buffer is sixteen pages, writers block
+when it fills, and larger writes amortize better. We measured those claims and
+then asked where the time goes. The dominant variable turns out to be
+placement and not payload size.
 
 \section{Apparatus and method}
+\label{sec:apparatus}
 
-An Ubuntu 24.04 guest on a custom Linux 7.2.4 kernel (arm64), eight vCPUs,
-\SI{12}{GiB} RAM, under QEMU/\texttt{hvf} on an Apple M1. Page size is
-\SI{4}{KiB} and \texttt{pipe-max-size} is \SI{1}{MiB}, so the resize sweep
-below runs unprivileged. Benchmarks are C at \texttt{-O3 -Wall -Wextra}.
-Absolute figures include hypervisor overhead; the comparisons between
-placements do not depend on it.
+We ran everything on an Ubuntu 24.04 guest with a custom Linux 7.2.4 kernel on
+arm64, eight vCPUs and \SI{12}{GiB} of RAM, under QEMU with \texttt{hvf} on an
+Apple M1. The page size is \SI{4}{KiB} and \texttt{pipe-max-size} is
+\SI{1}{MiB}, so the resize sweep runs unprivileged. Absolute figures include
+hypervisor overhead, but the placement comparisons do not depend on it.
 
-Processes are placed with \texttt{sched\_setaffinity} after the
-\texttt{fork}, not with \texttt{taskset}, which imposes a single shared mask
-and cannot express ``parent on core 0, child on core 1''. Each configuration
-is launched five times; each launch reports its internal minimum and we take
-the minimum again across launches, since noise can only add time. Throughput
-is a rate, so we report the maximum and never an arithmetic mean.
+We place the processes with \texttt{sched\_setaffinity} after the
+\texttt{fork}, since \texttt{taskset} cannot express parent on core 0 and child
+on core 1.
+Each configuration runs five times and we take the minimum, since noise can
+only add time. Throughput is a rate, so we report the maximum and never a
+mean.
 
 \section{Choosing a clock}
 
-\textbf{Variables.} Cause: the clock API. Effects: accuracy, call cost,
+\textbf{Variables.} The cause is the clock API. The effects are accuracy and
 granularity. \textbf{Hypothesis.} \texttt{clock\_gettime} can resolve a single
-exchange; \texttt{gettimeofday} cannot.
+exchange and \texttt{gettimeofday} cannot.
 
 We compared \texttt{clock\_gettime(CLOCK\_MONOTONIC)}, \texttt{gettimeofday},
-and \texttt{cntvct\_el0}, this architecture's analogue of \texttt{rdtsc}.
-Timing \texttt{sleep(5)} five times, all three recovered \SI{5.0024}{s} and
-agreed within \SI{53}{ppm}; the \SI{492}{ppm} excess is \texttt{sleep}'s own
-wakeup latency, which is precisely why the clocks agree on it.
-
-Granularity came from $10^6$ back-to-back reads into a preallocated array,
-post-processed afterwards, with nothing else in the loop
-(Table~\ref{tab:clocks}). The decisive column is the last:
+and \texttt{cntvct\_el0}, which is this architecture's analogue of
+\texttt{rdtsc}. Timing \texttt{sleep(5)}, all three recovered \SI{5.0024}{s}
+and agreed within \SI{53}{ppm}, so all three are accurate. We then read each
+clock $10^6$ times back to back. The quantum is \SI{\nCgtQuantum}{ns} for
+\texttt{clock\_gettime}, \SI{\nCcPeriod}{ns} for \texttt{cntvct\_el0}, and
+\SI{1}{\micro\second} for \texttt{gettimeofday}, and
 \SI{\nGtodZero}{\percent} of adjacent \texttt{gettimeofday} readings are
-\emph{identical}, two calls finishing inside one microsecond tick. A clock
-that cannot separate events by its own call cost cannot measure a
-\SI{\nLatSameSmall}{ns} round trip, so we discarded it.
-
-The cycle counter is cheapest to read but not finest: \texttt{cntfrq\_el0}
-reports \SI{24}{MHz}, a \SI{\nCcPeriod}{ns} period.
-\texttt{clock\_gettime} shows that same \SI{\nCgtQuantum}{ns} quantum because
-\texttt{current\_clocksource} is \texttt{arch\_sys\_counter} --- the vDSO
-reads that very register and scales it.
-
-We chose \texttt{clock\_gettime}, and not for speed: it costs about twice what
-the raw counter does per call (\SI{\nCgtCall}{ns} against \SI{\nCcCall}{ns}),
-and that overhead is charged to every measurement. The grounds are portability
-and exactness. \texttt{clock\_gettime} is one POSIX call that behaves
-identically on arm64 and x86-64, whereas the cycle counter needs
-per-architecture inline assembly and, on x86-64, a calibration step: there is
-no \texttt{cntfrq\_el0} equivalent, so the counter must be timed against
-\texttt{CLOCK\_MONOTONIC} and divided, importing that clock's error into every
-reading taken afterwards. On arm64 the rate is exact and reported by the
-hardware, but a clock we can trust on only one of the two architectures our
-code compiles for is not one the result should rest on.
-\texttt{clock\_gettime} additionally guarantees monotonicity, which a raw
-\texttt{rdtsc} read does not. Since the two share a quantum, taking the
-portable clock costs resolution nothing.
-
-Neither standard cycle-counter caveat bites here: frequency invariance follows
-from the \texttt{sleep} agreement, and reading \texttt{cntvct\_el0} on each of
-eight cores showed at most \SI{\nSkewMax}{ns} of spread with no systematic
-step, the arm64 generic timer being system-wide rather than per-core.
-
-\begin{table}[t]
-\centering
-\footnotesize
-\input{figures/clock_table.tex}
-\caption{Clock granularity over $10^6$ consecutive reads. ``Zero deltas'' is
-the fraction of adjacent readings that were identical; the last column is what
-a call of cost $c$ against a quantum $q$ predicts. The agreement is the point:
-a high fraction measures a call that is cheap relative to one tick, not a
-clock that is coarse. Only \texttt{gettimeofday} is disqualified, and by its
-\SI{1}{\micro\second} quantum rather than by its zero fraction.}
-\label{tab:clocks}
-\end{table}
+identical. A clock that cannot separate two of its own calls cannot measure a
+\SI{\nLatSameSmall}{ns} exchange, so we discarded it. We chose
+\texttt{clock\_gettime}, because it shares the quantum of the raw counter and
+is portable. Neither cycle counter caveat bites here, since the clock is frequency
+invariant and reads within \SI{\nSkewMax}{ns} across cores.
 
 \section{Latency}
 
-\textbf{Variables.} Cause: payload size and placement. Effect: one-way
-latency, taken as half a round trip so only one clock on one core is involved.
-\textbf{Hypothesis.} Flat while fixed cost dominates, then linear once copying
-does.
+\textbf{Variables.} The causes are payload size and placement. The effect is
+one-way latency, taken as half a round trip so that only one clock is
+involved. \textbf{Hypothesis.} Flat while the fixed cost dominates, then linear
+once the copying dominates.
 
-Figure~\ref{fig:latency} confirms that shape and adds one the hypothesis
-missed. Below \SI{4}{KiB} every curve is flat: cost is per exchange, not per
-byte. Above \SI{16}{KiB} growth is linear, and the same-core slope implies
-\SI{\nCopyBW}{GiB/s} of copy bandwidth. It is computed from the two
-endpoints of that curve, \SI{\nLatSameSmall}{ns} at \SI{4}{B} and
-\SI{\nLatSameBig}{ns} at \SI{512}{KiB}, a span of \SI{\nLatSpan}{ns}; the
-dashed line in Figure~\ref{fig:latency} is that model drawn over the data. A
-round trip copies the payload twice, once out of the writer and once into the
-reader, while the plotted value is half a round trip, so the two factors of
-two cancel and the bandwidth is simply payload over span.
+Figure~\ref{fig:latency} shows that shape. Below \SI{4}{KiB} every curve is
+flat, so the cost is per exchange and not per byte. Above \SI{16}{KiB} the
+growth is linear. The part we did not expect is the constant offset in the flat
+region. Same-core costs \SI{\nLatSameSmall}{ns} and cross-core
+costs \SI{\nLatCrossSmall}{ns}, a penalty of \SI{\nLatPenalty}{ns} that does
+not depend on the payload. Unpinned runs track the cross-core curve, so the
+scheduler spreads the pair by default.
 
-The surprise is the constant offset in the flat region:
-\SI{\nLatSameSmall}{ns} same-core against \SI{\nLatCrossSmall}{ns}
-cross-core, a payload-independent penalty of \SI{\nLatPenalty}{ns}. Unpinned runs track the cross-core curve, so the scheduler
-spreads the pair by default. Section~\ref{sec:time} accounts for that penalty.
-
-\begin{figure}[t]
+\begin{figure}[tb]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, legend style={font=\footnotesize, draw=none, fill=none, cells={anchor=west}}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, ymode=log, width=\columnwidth, height=3.9cm,
+\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, legend style={font=\footnotesize, draw=none, fill=none, cells={anchor=west}}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, ymode=log, width=\columnwidth, height=3.0cm,
   xlabel={Payload (bytes)}, ylabel={Latency (ns)},
   legend pos=north west]
 \addplot[catA, mark=*]        table[x=payload,y=same]     {figures/latency.dat};
 \addplot[catB, mark=square*]  table[x=payload,y=cross]    {figures/latency.dat};
 \addplot[catC, mark=triangle*] table[x=payload,y=unpinned] {figures/latency.dat};
-\addplot[black, dashed, no marks, samples=120, domain=4:524288, forget plot]
-  {\nLatSameSmall + x/\nCopySlope};
 \legend{same core, cross core, unpinned}
 \end{axis}
 \end{tikzpicture}
-\caption{One-way latency (half round trip), minimum of five runs. The flat
-region below \SI{4}{KiB} is fixed cost per exchange; the constant gap between
-same-core and cross-core is \SI{\nLatPenalty}{ns}. The dashed line is the
-fixed-cost-plus-linear-copy model fitted to the same-core endpoints.}
+\caption{One-way latency, taken as half a round trip, minimum of five runs.}
 \label{fig:latency}
 \end{figure}
 
-
-\begin{table}[t]
-\centering
-\footnotesize
-\input{figures/latency_table.tex}
-\caption{One-way latency by payload and placement, minimum of five runs. The
-data behind Figure~\ref{fig:latency}.}
-\label{tab:lat}
-\end{table}
-
-\begin{figure}[t]
+\begin{figure}[tb]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, scaled y ticks=false, ymin=0, ymax=11000, ytick={0,2000,4000,6000,8000,10000}, y tick label style={/pgf/number format/fixed}, width=\columnwidth, height=4.5cm, xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)}, legend style={font=\footnotesize, draw=none, fill=none, at={(0.5,-0.30)}, anchor=north, legend columns=3, /tikz/every even column/.append style={column sep=5pt}}, ]
+\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, scaled y ticks=false, ymin=0, ymax=11000, ytick={0,2000,4000,6000,8000,10000}, y tick label style={/pgf/number format/fixed}, width=\columnwidth, height=2.9cm, xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)}, legend style={font=\footnotesize, draw=none, fill=white, fill opacity=0.8, text opacity=1, at={(0.02,0.98)}, anchor=north west, cells={anchor=west}}, ]
 \addplot[catA, mark=*]       table[x=chunk,y=same]  {figures/throughput.dat};
 \addplot[catB, mark=square*] table[x=chunk,y=cross] {figures/throughput.dat};
 \addplot[dashed, gray, thick, mark=none, forget plot]
@@ -191,47 +127,68 @@ data behind Figure~\ref{fig:latency}.}
   at (axis cs:60000,600) {capacity};
 \end{axis}
 \end{tikzpicture}
-\caption{Streaming throughput at the default \SI{64}{KiB} capacity (dashed
-line). Only the cross-core curve collapses; the same-core curve saturates and
-stays flat well past capacity, although its writer blocks just as often.}
+\caption{Streaming throughput, best of five runs. The dashed line is the
+default \SI{64}{KiB} capacity.}
 \label{fig:thr}
 \end{figure}
 
 \section{Throughput}
 
-\textbf{Variables.} Cause: chunk size and placement. Effect: sustained one-way
-bandwidth, acknowledged once for the whole transfer. \textbf{Hypothesis.}
-Throughput rises as the fixed per-write cost amortizes, then falls once chunks
-exceed capacity and the writer blocks.
+\textbf{Variables.} The causes are chunk size and placement. The effect is
+sustained one-way bandwidth, acknowledged once for the whole transfer.
+\textbf{Hypothesis.} Throughput rises as the fixed per-write cost amortizes,
+then falls once the chunks exceed the capacity.
 
-Figure~\ref{fig:thr} shows the first half right and the second wrong. Only
-the cross-core curve collapses, peaking at \SI{\nThrCrossPeak}{MiB/s} at \SI{8}{KiB} and
-falling to \SI{\nThrCrossBig}{MiB/s} by \SI{512}{KiB}. The same-core curve climbs to
-\SI{\nThrSamePeak}{MiB/s} and stays flat through chunks eight times the capacity. That
-falsifies blocking as the explanation: the same-core writer blocks just as
-often, the pipe being the same size, and pays nothing for it.
+Figure~\ref{fig:thr} shows that the first half is right and the second half is
+wrong. Only the cross-core curve collapses, from \SI{\nThrCrossPeak}{MiB/s} at
+\SI{8}{KiB} to \SI{\nThrCrossBig}{MiB/s} at \SI{512}{KiB}. The same-core curve
+climbs to \SI{\nThrSamePeak}{MiB/s} and stays flat through chunks eight times
+the capacity. This rules out blocking as the explanation, because the pipe is
+the same size in both cases, so the same-core writer blocks just as often.
+What is lost is overlap, and Section~\ref{sec:time} accounts for it.
 
-The mechanism is loss of \emph{overlap}. Across cores, writer and reader truly
-run in parallel, and that pipelining survives only while the writer can
-deposit a whole chunk without stalling. Past capacity it stalls mid-chunk
-every time, the pair falls into lockstep, and every handoff costs a full
-cross-core wakeup. On one core there was no parallelism to lose, so bandwidth
-simply saturates at what the cache hierarchy sustains. The crossover at
-\SI{4}{KiB} follows: below it overlap beats locality, above it locality wins.
+\section{Where the time goes}
+\label{sec:time}
 
-\begin{table}[t]
+\textbf{Variables.} The causes are placement and the ratio of payload to
+capacity. The effects are the split of elapsed time between user, kernel and
+blocked, and the context switches per exchange. \textbf{Hypothesis.} If the
+cross-core penalty is a scheduling cost, both placements should issue the same
+system calls and the same context switches, and the difference should appear as
+time that is neither user nor kernel.
+
+A nonblocking pipe accepts exactly \SI{65536}{bytes} before \texttt{EAGAIN},
+which matches \texttt{F\_GETPIPE\_SZ} and the sixteen page folklore.
+Table~\ref{tab:time} accounts for the wall clock with \texttt{getrusage}. At
+\SI{4}{B} the same-core pair spends almost all its time in the kernel and none
+of it blocked. The cross-core pair does the same work, and \texttt{strace}
+confirms two \texttt{write} and two \texttt{read} calls per round trip, but it
+is ten times slower, and \SI{\nCrossBlocked}{\percent} of its wall clock is
+neither user nor system time. That residue is the \SI{\nLatPenalty}{ns}
+penalty, because it is time spent descheduled while waiting for a wakeup on
+another core.
+
+The context switch column connects this to the capacity. There are
+$\nCtxSmall$ voluntary switches per round trip at \SI{4}{B} and $\nCtxBig$ at
+\SI{512}{KiB}, which is exactly $2\lceil \text{size}/\text{capacity}\rceil$
+against the measured \SI{64}{KiB}. Figure~\ref{fig:resize} then makes the
+capacity the independent variable, and the knee follows the configured size, so
+the correlation is causal.
+
+\begin{table}[tb]
 \centering
-\footnotesize
-\input{figures/throughput_table.tex}
-\caption{Streaming throughput by chunk size and placement, best of five runs.
-The data behind Figure~\ref{fig:thr}.}
-\label{tab:thr}
+\scriptsize
+\input{figures/profile_table.tex}
+\caption{Where the wall clock goes, per round trip. Percentages are
+\texttt{getrusage} totals for both processes against elapsed time, and
+``cs/RT'' is voluntary context switches.}
+\label{tab:time}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[tb]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, scaled y ticks=false, ymin=0, ymax=11000, ytick={0,2000,4000,6000,8000,10000}, y tick label style={/pgf/number format/fixed}, width=\columnwidth, height=4.5cm, xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)}, legend style={font=\footnotesize, draw=none, fill=none, at={(0.5,-0.30)}, anchor=north, legend columns=3, /tikz/every even column/.append style={column sep=5pt}}, ]
+\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, scaled y ticks=false, ymin=0, ymax=11000, ytick={0,2000,4000,6000,8000,10000}, y tick label style={/pgf/number format/fixed}, width=\columnwidth, height=2.9cm, xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)}, legend style={font=\footnotesize, draw=none, fill=white, fill opacity=0.8, text opacity=1, at={(0.02,0.98)}, anchor=north west, legend columns=2, /tikz/every even column/.append style={column sep=4pt}}, ]
 \addplot[seqA, mark=o]        table[x=chunk,y=cap4096]    {figures/resize.dat};
 \addplot[seqB, mark=square]   table[x=chunk,y=cap16384]   {figures/resize.dat};
 \addplot[seqC, mark=triangle] table[x=chunk,y=cap65536]   {figures/resize.dat};
@@ -241,99 +198,23 @@ The data behind Figure~\ref{fig:thr}.}
 \end{axis}
 \end{tikzpicture}
 \caption{Cross-core throughput with the pipe capacity set by
-\texttt{F\_SETPIPE\_SZ}, one curve per capacity, light to dark. The knee
-tracks the configured size, which establishes capacity as the cause rather
-than a correlate.}
+\texttt{F\_SETPIPE\_SZ}, one curve per capacity, light to dark.}
 \label{fig:resize}
 \end{figure}
 
-\section{Where the time goes}
-\label{sec:time}
-
-\textbf{Variables.} Cause: placement and the ratio of payload to pipe
-capacity. Effects: the split of elapsed time between user, kernel and blocked,
-and the number of context switches and system calls per exchange.
-\textbf{Hypothesis.} If the cross-core penalty is a scheduling cost rather
-than a copying or system-call cost, then the two placements will issue
-identical system calls and identical context switches, and the whole
-difference will appear as time that is neither user nor kernel.
-
-Filling a nonblocking pipe until \texttt{EAGAIN} accepts exactly
-\SI{65536}{bytes}, matching both \texttt{F\_GETPIPE\_SZ} and the sixteen-page
-folklore; single-byte writes reach the same total, so no page is wasted per
-write.
-
-Table~\ref{tab:time} accounts for the wall clock with \texttt{getrusage}. At
-\SI{4}{B} the same-core pair spends essentially all its time in the kernel and
-none blocked. The cross-core pair does identical work --- \texttt{strace}
-confirms exactly two \texttt{write} and two \texttt{read} calls per round trip
---- yet is ten times slower, with \SI{\nCrossBlocked}{\percent} of its wall clock in
-neither user nor system time. That residue answers the \SI{\nLatPenalty}{ns}
-question: it is time descheduled, awaiting a wakeup on another core.
-
-The context-switch column closes the loop with capacity: $\nCtxSmall$ voluntary
-switches per round trip at \SI{4}{B} and $\nCtxBig$ at \SI{512}{KiB}, exactly
-$2\lceil \text{size}/\text{capacity}\rceil$ against the measured
-\SI{64}{KiB}. \texttt{strace} gives the same arithmetic from the other side
---- at \SI{512}{KiB} the reader issues nine \texttt{read} calls per round
-trip, eight for data and one for the ack, because a read returns only what is
-buffered. Capacity sets the number of handoffs; placement sets the price of
-each.
-
-Finally we made capacity the independent variable.
-Figure~\ref{fig:resize} re-runs the cross-core sweep with
-\texttt{F\_SETPIPE\_SZ} from \SI{4}{KiB} to \SI{1}{MiB}. The knee follows it:
-a \SI{16}{KiB} pipe collapses at \SI{8}{KiB} chunks, a \SI{64}{KiB} pipe at
-\SI{64}{KiB}, a \SI{256}{KiB} pipe at \SI{256}{KiB}, and a \SI{1}{MiB} pipe,
-larger than any chunk tested, never collapses. The correlation is causal.
-
-\begin{table}[t]
-\centering
-\footnotesize
-\input{figures/profile_table.tex}
-\caption{Where the wall clock goes, per round trip. Percentages are
-\texttt{getrusage} totals for both processes against elapsed time and may
-exceed \SI{100}{\percent} by a point from tick granularity. ``cs/RT'' is
-voluntary context switches per round trip.}
-\label{tab:time}
-\end{table}
-
-
 \section{Conclusions}
 
-Pipe cost is set by two quantities, and payload size is only one of them.
-Capacity fixes how many handoffs a transfer needs, exactly
-$2\lceil \text{size}/\text{capacity}\rceil$ voluntary context switches,
-confirmed against a measured \SI{64}{KiB} and then verified causally by moving
-it. Placement fixes the price of each handoff: \SI{\nLatPenalty}{ns} of descheduled
-time when the peer is on another core, three quarters of the total at small
-payloads.
-
-The practical consequence is counterintuitive. Spreading a communicating pair
-across cores buys parallelism worth having only while messages stay below
-capacity; past that, the pair is four times faster confined to a single core.
-A benchmark that leaves placement to the scheduler measures the cross-core
-case without saying so.
-
-Two limits bound these results: everything ran virtualized, so absolute
-latencies carry hypervisor overhead, and no PMU was available in the guest, so
-Table~\ref{tab:time} rests on \texttt{getrusage} and \texttt{strace} rather
-than hardware counters. We report the residue as blocked because it is neither
-user nor system time, not because a counter placed it there.
+Pipe cost is set by two quantities, and the payload size is only one of them.
+The capacity fixes how many handoffs a transfer needs, and the placement fixes
+the price of each one. So spreading a pair across cores only helps while the
+messages stay below the capacity, and past that point the pair is four times
+faster on a single core. Everything ran virtualized, so the absolute latencies
+carry hypervisor overhead, and no PMU was available in the guest, so
+Table~\ref{tab:time} rests on \texttt{getrusage} and \texttt{strace}.
 
 \section{Use of AI tools}
 
-We used an AI coding assistant in three roles. It helped verify code
-revisions, reviewing the benchmark sources for defects and checking that
-changes behaved as intended. It helped conduct the experiments, driving the
-measurement sweeps across the placement and capacity matrices and aggregating
-the resulting CSVs into the tables and figures reported here. And we used it
-to brainstorm, particularly in working out which follow-up experiments would
-distinguish competing explanations for the throughput collapse.
-
-The experimental design, the interpretation of the results and the claims made
-in this paper are our own, and we take responsibility for them. Every number
-reported here was produced by a committed benchmark on the machine described
-in Section~2 and is reproducible from the committed data.
+We used an AI coding assistant to review the benchmark code and run the
+sweeps, but the design, the interpretation and the claims are our own.
 
 \end{document}
