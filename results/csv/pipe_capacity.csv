@@ -1,0 +1,9 @@
+method,bytes,pages_at_4096,note
+f_getpipe_sz,65536,16.0000,kernel reported
+folklore_16_pages,65536,16.0,16 * page size
+single_byte_writes,65536,16.0000,write() until EAGAIN
+chunk_16,65536,16.0000,write() until EAGAIN
+chunk_64,65536,16.0000,write() until EAGAIN
+chunk_256,65536,16.0000,write() until EAGAIN
+chunk_1024,65536,16.0000,write() until EAGAIN
+chunk_4096,65536,16.0000,write() until EAGAIN

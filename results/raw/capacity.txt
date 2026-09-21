@@ -1,0 +1,18 @@
+Pipe capacity, measured
+
+  page size (sysconf):        4096
+  F_GETPIPE_SZ:               65536
+  16 * page size (folklore):  65536
+
+  fill method                         bytes      pages
+  single-byte writes                  65536      16.00
+  16-byte writes                      65536      16.00
+  64-byte writes                      65536      16.00
+  256-byte writes                     65536      16.00
+  1024-byte writes                    65536      16.00
+  4096-byte writes                    65536      16.00
+
+  Verdict: F_GETPIPE_SZ matches 16 * page size.
+  Single-byte fill reached 100.0% of the nominal capacity.
+
+Wrote pipe_capacity.csv

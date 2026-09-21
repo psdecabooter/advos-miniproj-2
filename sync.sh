@@ -4,7 +4,9 @@
 # silently collected a full matrix with the wrong code.
 set -eu
 REPO="$(cd "$(dirname "$0")" && pwd)"
-rsync -a --delete-excluded \
+# No --delete-excluded here: it deletes the excluded paths on the far side,
+# which once wiped the guest's results/ directory mid-collection.
+rsync -a \
   --exclude '.git' --exclude 'results' --exclude 'report' \
   --exclude 'timer-test' --exclude 'latency-test' --exclude 'throughput-test' \
   --exclude 'capacity-test' --exclude 'resize-test' --exclude '*.csv' \
