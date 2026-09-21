@@ -7,54 +7,85 @@
   Example Output:
   --------------------
   ./timer-test
-  Avg 5sec over 5 runs
-  clock_gettime: 5.0001 seconds
-  gettimeofday: 5.2787 seconds
+  Min smallest time of dividing the sum of times by 25 over 25 loops
+  clock_gettime: 1400.00 nanoseconds
+  gettimeofday: 1.00 microseconds
 
-  Avg smallest time of dividing the sum of times by 25 over 25 loops
-  clock_gettime: 53.16 nanoseconds
-  gettimeofday: 0.08 microseconds
+  Min 5sec over 5 runs
+  clock_gettime: 5.0001 seconds
+  gettimeofday: 5.0002 seconds
   --------------------
 */
 #include "Timer.h"
+#include <limits.h>
 #include <unistd.h>
 
-int main(int argc, char *argv[]) {
-
-  printf("Avg 5sec over 5 runs\n");
+void sleep_test() {
+  printf("Min 5sec over 5 runs\n");
   TimerCGT cgt_timer;
-  long long int sum = 0;
+  long long int min = LLONG_MAX;
   for (int i = 0; i < 5; ++i) {
     startTimerCGT(&cgt_timer);
     sleep(5);
-    sum += getTimerCGTNano(&cgt_timer);
+    long long int test = getTimerCGTNano(&cgt_timer);
+    if (test < min) {
+      min = test;
+    }
   }
 
-  printf("clock_gettime: %.4lf seconds\n", ((double)sum / 5) / 1000000000.);
+  printf("clock_gettime: %.4lf seconds\n", ((double)min) / 1000000000.);
   TimerGTOD gtod_timer;
-  sum = 0;
+  min = LLONG_MAX;
   for (int i = 0; i < 5; ++i) {
     startTimerGTOD(&gtod_timer);
     sleep(5);
-    sum += getTimerGTODMicro(&gtod_timer);
+    long long int test = getTimerGTODMicro(&gtod_timer);
+    if (test < min) {
+      min = test;
+    }
   }
-  printf("gettimeofday: %.4lf seconds\n", ((double)sum / 5) / 1000000.);
+  printf("gettimeofday: %.4lf seconds\n", ((double)min) / 1000000.);
+}
 
-  printf("Avg smallest time of dividing the sum of times by 25 over 25 loops\n");
-  sum = 0;
+void short_test() {
+  printf(
+      "Min smallest time of adding to one number 100 times over 10 loops\n");
+  TimerCGT cgt_timer;
+  TimerGTOD gtod_timer;
+  long long int min = LLONG_MAX;
   long long int filler = 0;
-  for (int i = 0; i < 25; ++i) {
+  for (int i = 0; i < 10; ++i) {
     startTimerCGT(&cgt_timer);
-    filler += sum / 25;
-    sum += getTimerCGTNano(&cgt_timer);
+    int sum = 0;
+    for (int i = 0; i<100; ++i) {
+      sum += i;
+    }
+    printf("%d\n",sum);
+    long long int test = getTimerCGTNano(&cgt_timer);
+    if (test < min) {
+      min = test;
+    }
   }
-  printf("clock_gettime: %.2lf nanoseconds\n", (double)sum / 25);
+  printf("clock_gettime: %.2lf nanoseconds\n", (double)min);
 
-  sum = 0;
-  for (int i = 0; i < 25; ++i) {
+  min = LLONG_MAX;
+  for (int i = 0; i < 10; ++i) {
     startTimerGTOD(&gtod_timer);
-    filler += sum / 25;
-    sum += getTimerGTODMicro(&gtod_timer);
+    int sum = 0;
+    for (int i = 0; i<100; ++i) {
+      sum += i;
+    }
+    printf("%d\n",sum);
+    long long int test = getTimerGTODMicro(&gtod_timer);
+    // printf("%lld\n",test);
+    if (test < min) {
+      min = test;
+    }
   }
-  printf("gettimeofday: %.2lf microseconds\n", (double)sum / 25);
+  printf("gettimeofday: %.2lf microseconds\n", (double)min);
+}
+
+int main(int argc, char *argv[]) {
+  short_test();
+  sleep_test();
 }

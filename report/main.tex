@@ -36,8 +36,13 @@ down to microseconds. We chose to do it this way since it would take advantage o
 increased accuracy and give us more intuitive numbers for figures.
 
 To evaluate the accuracy of these two timers, we decided to measure accuracy against
-\texttt{sleep} from the header \texttt{uistd.h} and measure the smallest measurable time.
-To measure against \texttt{sleep}, we called 
+\texttt{sleep} from the header \texttt{unistd.h} and measure the smallest measurable time.
+To measure against \texttt{sleep}, we started the timer, called \texttt{sleep(5)}, then 
+measured the final time to get the difference. We did this five times in a loop for each timer,
+and took the minimum result. To measure the smallest measurable time, we chose to see 
+\begin{figure*}[ht]
+  
+\end{figure*}
 
 \subsection*{Results}
 

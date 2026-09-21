@@ -3,30 +3,30 @@
 
   Example output:
   --------------------
-  Measuring halved-round-trip latency for a variety of message sizes: 4, 16, 64,
-  256, 1K, 4K, 16K, 64K, 256K, and 512K bytes Testing each 10 times
+  Measuring halved-round-trip latency for a variety of message sizes: 4, 16, 64, 256, 1K, 4K, 16K, 64K, 256K, and 512K bytes
+  Testing each 10 times, finding min
 
-  clock_gettime:  72997.90 nanoseconds, 4 payload size
-  clock_gettime:  99936.15 nanoseconds, 16 payload size
-  clock_gettime: 133376.05 nanoseconds, 64 payload size
-  clock_gettime: 164895.10 nanoseconds, 256 payload size
-  clock_gettime: 194134.95 nanoseconds, 1024 payload size
-  clock_gettime: 219065.10 nanoseconds, 4096 payload size
-  clock_gettime: 264623.75 nanoseconds, 16384 payload size
-  clock_gettime: 302401.55 nanoseconds, 65536 payload size
-  clock_gettime: 430193.40 nanoseconds, 262144 payload size
-  clock_gettime: 654020.35 nanoseconds, 524288 payload size
+  clock_gettime: 30606.00 nanoseconds, 4 payload size
+  clock_gettime: 30552.00 nanoseconds, 16 payload size
+  clock_gettime: 41875.50 nanoseconds, 64 payload size
+  clock_gettime: 23037.00 nanoseconds, 256 payload size
+  clock_gettime: 29706.00 nanoseconds, 1024 payload size
+  clock_gettime: 26560.00 nanoseconds, 4096 payload size
+  clock_gettime: 32152.50 nanoseconds, 16384 payload size
+  clock_gettime: 45757.50 nanoseconds, 65536 payload size
+  clock_gettime: 153987.50 nanoseconds, 262144 payload size
+  clock_gettime: 254329.00 nanoseconds, 524288 payload size
 
-  gettimeofday:  25.15 microseconds, 4 payload size
-  gettimeofday:  55.75 microseconds, 16 payload size
-  gettimeofday:  84.60 microseconds, 64 payload size
-  gettimeofday: 110.00 microseconds, 256 payload size
-  gettimeofday: 132.70 microseconds, 1024 payload size
-  gettimeofday: 161.05 microseconds, 4096 payload size
-  gettimeofday: 214.70 microseconds, 16384 payload size
-  gettimeofday: 253.25 microseconds, 65536 payload size
-  gettimeofday: 378.15 microseconds, 262144 payload size
-  gettimeofday: 563.65 microseconds, 524288 payload size
+  gettimeofday: 30.50 microseconds, 4 payload size
+  gettimeofday: 31.50 microseconds, 16 payload size
+  gettimeofday: 24.00 microseconds, 64 payload size
+  gettimeofday: 24.00 microseconds, 256 payload size
+  gettimeofday: 32.50 microseconds, 1024 payload size
+  gettimeofday: 40.50 microseconds, 4096 payload size
+  gettimeofday: 44.00 microseconds, 16384 payload size
+  gettimeofday: 39.50 microseconds, 65536 payload size
+  gettimeofday: 118.50 microseconds, 262144 payload size
+  gettimeofday: 243.50 microseconds, 524288 payload size
   --------------------
 */
 #include "Timer.h"
@@ -51,20 +51,21 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
   close(p2c[0]);
   close(c2p[1]);
 
-  #ifndef PL_SILENT
+#ifndef PL_SILENT
   printf("Measuring halved-round-trip latency for a variety of message sizes: "
          "4, 16, "
          "64, 256, "
          "1K, 4K, 16K, 64K, 256K, and 512K bytes\n");
-  printf("Testing each 10 times\n");
-  #endif
+  printf("Testing each 10 times, finding min\n");
+#endif
 
   char read_ack;
 
   {
     TimerCGT timer_cgt;
-    long long int sum = 0;
+    long long int min = LLONG_MAX;
     for (int pi = 0; pi < 10; ++pi) {
+      min = LLONG_MAX;
       int size = payload_sizes[pi];
       char *payload = malloc(size);
       if (payload == NULL) {
@@ -86,21 +87,25 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
           exit(EXIT_FAILURE);
         }
 
-        sum += getTimerCGTNano(&timer_cgt);
+        long long int test = getTimerCGTNano(&timer_cgt);
+        if (test < min) {
+          min = test;
+        }
       }
 
       free(payload);
-      #ifndef PL_SILENT
+#ifndef PL_SILENT
       printf("clock_gettime: %.2lf nanoseconds, %d payload size\n",
-             (((double)sum / 10.) / 2.), size);
-      #endif
+             (((double)min) / 2.), size);
+#endif
     }
   }
 
   {
     TimerGTOD timer_gtod;
-    long long int sum = 0;
+    long long int min = LLONG_MAX;
     for (int pi = 0; pi < 10; ++pi) {
+      min = LLONG_MAX;
       int size = payload_sizes[pi];
       char *payload = malloc(size);
       if (payload == NULL) {
@@ -122,14 +127,17 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
           exit(EXIT_FAILURE);
         }
 
-        sum += getTimerGTODMicro(&timer_gtod);
+        long long int test = getTimerGTODMicro(&timer_gtod);
+        if (test < min) {
+          min = test;
+        }
       }
 
       free(payload);
-      #ifndef PL_SILENT
+#ifndef PL_SILENT
       printf("gettimeofday: %.2lf microseconds, %d payload size\n",
-             (((double)sum / 10.) / 2.), size);
-      #endif
+             (((double)min) / 2.), size);
+#endif
     }
   }
 
