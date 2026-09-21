@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.7)  21 SEP 2026 16:11
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.7)  21 SEP 2026 16:50
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -279,43 +279,66 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `cmtt' (encoding: OT1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10.95> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 71.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 71.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <6> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 71.
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \vbox (badness 2073) has occurred while \output is active []
 
-- LAST -
-Extra skip:0.0pt
-Left:331.45782pt/2.37057pt
-Right:333.03705pt/0.2663pt
-Split: 333.54744pt
-Output:333.54744pt
-Pageshrink: 0.0pt
-Pagestretch: 14.88379pt
-@colht:502.10503pt
-FLUSHEND [output]: 333.54744pt
-FLUSHEND [leftcolumn badness]: 4
-FUSHEND [rightcolumn badness]: 0
  [1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
 
-] [2] (./main.aux)
+]
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+[leftcolumn badness]: 1000000 on 8.41238pt
+[rightcolumn badness]: 1000000 on 8.41238pt
+- LAST -
+Extra skip:18.72487pt
+Left:127.19128pt/2.37057pt
+Right:110.5707pt/0.2663pt
+Split: 128.18098pt
+Output:128.18098pt
+Pageshrink: 0.0pt
+Pagestretch: 0.0pt
+@colht:650.43001pt
+FLUSHEND [output]: 128.18098pt
+FLUSHEND [leftcolumn badness]: 12
+FUSHEND [rightcolumn badness]: 562
+ [2] (./main.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 4575 strings out of 474222
- 74444 string characters out of 5748734
- 1934975 words of memory out of 5000000
- 26717 multiletter control sequences out of 15000+600000
- 577514 words of font info for 112 fonts, out of 8000000 for 9000
+ 4673 strings out of 474222
+ 75705 string characters out of 5748734
+ 1935975 words of memory out of 5000000
+ 26754 multiletter control sequences out of 15000+600000
+ 589975 words of font info for 168 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  57i,8n,65p,1066b,273s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb>
-Output written on main.pdf (2 pages, 44147 bytes).
+</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb>
+Output written on main.pdf (2 pages, 57917 bytes).
 PDF statistics:
- 27 PDF objects out of 1000 (max. 8388607)
- 16 compressed objects within 1 object stream
+ 32 PDF objects out of 1000 (max. 8388607)
+ 19 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 34817 words of extra memory for PDF output out of 35830 (max. 10000000)
+ 48641 words of extra memory for PDF output out of 51595 (max. 10000000)
 
