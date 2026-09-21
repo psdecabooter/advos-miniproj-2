@@ -3,10 +3,14 @@
 \usepackage{microtype}
 \usepackage{flushend}
 \usepackage{graphicx, setspace, mathptmx, titling} 
+\usepackage{xspace}
 
 \title{Evaluation of IPC through Linux Pipes}
 \author{Patrick DeCabooter and Shaw Liu}
 \date{}
+
+\newcommand{\cgt}{\texttt{clock\_gettime}\xspace}
+\newcommand{\gtod}{\texttt{gettimeofday}\xspace}
 
 \begin{document}
 
@@ -17,6 +21,23 @@
 \section{Clock Precision Evaluation}
 
 \subsection*{Design}
+We tested two types of timers for our experiments. 
+The first timer, provided by the header \texttt{time.h}, is \cgt.
+We chose \texttt{CLOCK\_MONOTONIC} as the clock to use for \cgt due 
+to it having guaranteed monotonicity and being system-wide, 
+this provides nanosecond precision.
+The second timer, provided by the header \texttt{sys/time.h}, is \gtod.
+\gtod finds the time by measuring the clock cycles since the last kernel epoch,
+this provides microsecond precision.
+\gtod is a much older clock. By the time cpu-cyles were able to measure nanoseconds,
+\gtod's interface was already locked-in. \cgt was introduced as the api to replace \gtod.
+In order to have similar units, we scaled \gtod up to nanoseconds instead of scaling \cgt
+down to microseconds. We chose to do it this way since it would take advantage of \cgt's
+increased accuracy and give us more intuitive numbers for figures.
+
+To evaluate the accuracy of these two timers, we decided to measure accuracy against
+\texttt{sleep} from the header \texttt{uistd.h} and measure the smallest measurable time.
+To measure against \texttt{sleep}, we called 
 
 \subsection*{Results}
 
