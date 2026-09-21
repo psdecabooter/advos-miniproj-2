@@ -24,7 +24,35 @@
 \definecolor{seqD}{HTML}{1C5CAB}
 \definecolor{seqE}{HTML}{0D366B}
 
+\pgfplotsset{
+  paperplot/.style={
+    width=0.95\columnwidth,
+    xlabel style={font=\small, yshift=2pt},
+    ylabel style={font=\small, yshift=-4pt},
+    tick label style={font=\footnotesize},
+    tick align=outside, tick pos=left,
+    grid=major, grid style={gray!20},
+    every axis plot/.append style={thick, mark size=1.7pt},
+    legend cell align=left,
+    legend image code/.code={%
+      \draw[##1, mark=none] (0cm,0cm) -- (0.30cm,0cm);%
+      \draw[##1, only marks] plot coordinates {(0.15cm,0cm)};},
+    legend style={font=\footnotesize, draw=none, fill=none,
+                  anchor=north, /tikz/every even column/.append style={column sep=7pt}},
+  },
+  ratebars/.style={
+    scaled y ticks=false, ymin=0, ymax=11200,
+    ytick={0,2000,4000,6000,8000,10000},
+    y tick label style={/pgf/number format/fixed},
+    xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)},
+  },
+}
+
 \input{figures/numbers.tex}
+
+\usepackage[compact]{titlesec}
+\titlespacing*{\section}{0pt}{1.4ex plus .2ex minus .2ex}{0.8ex plus .1ex}
+\raggedbottom
 
 \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
 \setlength{\floatsep}{8pt plus 2pt minus 2pt}
@@ -69,8 +97,8 @@ mean.
 granularity. \textbf{Hypothesis.} \texttt{clock\_gettime} can resolve a single
 exchange and \texttt{gettimeofday} cannot.
 
-We compared \texttt{clock\_gettime(CLOCK\_MONOTONIC)}, \texttt{gettimeofday},
-and \texttt{cntvct\_el0}, which is this architecture's analogue of
+We compared \texttt{clock\_gettime}, \texttt{gettimeofday} and
+\texttt{cntvct\_el0}, which is this architecture's analogue of
 \texttt{rdtsc}. Timing \texttt{sleep(5)}, all three recovered \SI{5.0024}{s}
 and agreed within \SI{53}{ppm}, so all three are accurate. We then read each
 clock $10^6$ times back to back. The quantum is \SI{\nCgtQuantum}{ns} for
@@ -101,9 +129,9 @@ scheduler spreads the pair by default.
 \begin{figure}[tb]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, legend style={font=\footnotesize, draw=none, fill=none, cells={anchor=west}}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, ymode=log, width=\columnwidth, height=3.0cm,
-  xlabel={Payload (bytes)}, ylabel={Latency (ns)},
-  legend pos=north west]
+\begin{axis}[paperplot, xmode=log, log basis x=2, ymode=log, height=4.0cm, legend columns=3,
+  legend style={at={(0.5,-0.42)}},
+  xlabel={Payload (bytes)}, ylabel={Latency (ns)}]
 \addplot[catA, mark=*]        table[x=payload,y=same]     {figures/latency.dat};
 \addplot[catB, mark=square*]  table[x=payload,y=cross]    {figures/latency.dat};
 \addplot[catC, mark=triangle*] table[x=payload,y=unpinned] {figures/latency.dat};
@@ -117,7 +145,8 @@ scheduler spreads the pair by default.
 \begin{figure}[tb]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, scaled y ticks=false, ymin=0, ymax=11000, ytick={0,2000,4000,6000,8000,10000}, y tick label style={/pgf/number format/fixed}, width=\columnwidth, height=2.9cm, xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)}, legend style={font=\footnotesize, draw=none, fill=white, fill opacity=0.8, text opacity=1, at={(0.02,0.98)}, anchor=north west, cells={anchor=west}}, ]
+\begin{axis}[paperplot, xmode=log, log basis x=2, ratebars, height=4.0cm, legend columns=2,
+  legend style={at={(0.5,-0.42)}}]
 \addplot[catA, mark=*]       table[x=chunk,y=same]  {figures/throughput.dat};
 \addplot[catB, mark=square*] table[x=chunk,y=cross] {figures/throughput.dat};
 \addplot[dashed, gray, thick, mark=none, forget plot]
@@ -145,7 +174,7 @@ wrong. Only the cross-core curve collapses, from \SI{\nThrCrossPeak}{MiB/s} at
 climbs to \SI{\nThrSamePeak}{MiB/s} and stays flat through chunks eight times
 the capacity. This rules out blocking as the explanation, because the pipe is
 the same size in both cases, so the same-core writer blocks just as often.
-What is lost is overlap, and Section~\ref{sec:time} accounts for it.
+What is lost is overlap, since past the capacity the writer stalls mid-chunk.
 
 \section{Where the time goes}
 \label{sec:time}
@@ -179,16 +208,22 @@ the correlation is causal.
 \centering
 \scriptsize
 \input{figures/profile_table.tex}
-\caption{Where the wall clock goes, per round trip. Percentages are
-\texttt{getrusage} totals for both processes against elapsed time, and
-``cs/RT'' is voluntary context switches.}
+\caption{Where the wall clock goes, per round trip. User and system sum both
+processes' CPU time against one elapsed interval, so they pass
+\SI{100}{\percent} when the two overlap; \%blk is the remainder, floored at
+zero, and ``cs/RT'' is voluntary context switches.}
 \label{tab:time}
 \end{table}
 
 \begin{figure}[tb]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xmode=log, log basis x=2, xlabel style={font=\small}, ylabel style={font=\small}, tick label style={font=\footnotesize}, grid=major, grid style={gray!25}, every axis plot/.append style={very thick, mark size=2pt}, scaled y ticks=false, ymin=0, ymax=11000, ytick={0,2000,4000,6000,8000,10000}, y tick label style={/pgf/number format/fixed}, width=\columnwidth, height=2.9cm, xlabel={Chunk size (bytes)}, ylabel={Throughput (MiB/s)}, legend style={font=\footnotesize, draw=none, fill=white, fill opacity=0.8, text opacity=1, at={(0.02,0.98)}, anchor=north west, legend columns=2, /tikz/every even column/.append style={column sep=4pt}}, ]
+\begin{axis}[paperplot, xmode=log, log basis x=2, ratebars, height=4.3cm, legend columns=5,
+  legend style={font=\scriptsize, at={(0.5,-0.40)},
+  /tikz/every even column/.append style={column sep=1pt}},
+  legend image code/.code={%
+    \draw[#1, mark=none] (0cm,0cm) -- (0.24cm,0cm);%
+    \draw[#1, only marks] plot coordinates {(0.12cm,0cm)};}]
 \addplot[seqA, mark=o]        table[x=chunk,y=cap4096]    {figures/resize.dat};
 \addplot[seqB, mark=square]   table[x=chunk,y=cap16384]   {figures/resize.dat};
 \addplot[seqC, mark=triangle] table[x=chunk,y=cap65536]   {figures/resize.dat};
@@ -206,15 +241,15 @@ the correlation is causal.
 
 Pipe cost is set by two quantities, and the payload size is only one of them.
 The capacity fixes how many handoffs a transfer needs, and the placement fixes
-the price of each one. So spreading a pair across cores only helps while the
-messages stay below the capacity, and past that point the pair is four times
-faster on a single core. Everything ran virtualized, so the absolute latencies
+the price of each one. Spreading a pair across cores never helps latency, and
+it buys throughput only below \SI{4}{KiB}; past that a single core is up to
+four times faster. Everything ran virtualized, so the absolute latencies
 carry hypervisor overhead, and no PMU was available in the guest, so
 Table~\ref{tab:time} rests on \texttt{getrusage} and \texttt{strace}.
 
 \section{Use of AI tools}
 
-We used an AI coding assistant to review the benchmark code and run the
-sweeps, but the design, the interpretation and the claims are our own.
+We used AI assistance to revise and review code, to drive the experiment
+runs, and to brainstorm the analysis.
 
 \end{document}
