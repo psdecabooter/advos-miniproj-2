@@ -14,3 +14,6 @@ report/*.log
 report/*.synctex.gz
 report/*.out
 report/*.toc
+
+# macOS
+.DS_Store

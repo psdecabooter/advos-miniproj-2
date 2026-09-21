@@ -72,8 +72,34 @@ def git(*args):
         return "(git unavailable)\n"
 
 
+def clock_numbers():
+    """Read part 1's results back out of the committed CSV.
+
+    These were hand-typed into the narrative once and then disagreed with the
+    CSV after the benchmark was re-run, which is exactly the drift this file
+    exists to make visible. They are now read from the data.
+    """
+    import csv as _csv
+    d = {}
+    with open(os.path.join(CSV, "clock_precision.csv")) as fh:
+        for r in _csv.DictReader(fh):
+            d[(r["clock"], r["metric"])] = float(r["value"])
+    skew = max(abs(v) for (c, m), v in d.items()
+               if m.startswith("cpu") and m.endswith("skew_ns"))
+    return {
+        "gtod_zero": 100 * d[("gettimeofday", "zero_delta_fraction")],
+        "cc_call": d[("cntvct_el0", "mean_call_ns")],
+        "cgt_call": d[("clock_gettime", "mean_call_ns")],
+        "cgt_res": d[("clock_gettime", "smallest_nonzero_delta_ns")],
+        "cc_res": d[("cntvct_el0", "smallest_nonzero_delta_ns")],
+        "ratio": d[("clock_gettime", "mean_call_ns")] / d[("cntvct_el0", "mean_call_ns")],
+        "skew": skew,
+    }
+
+
 def main():
     fh = io.open(OUT, "w", encoding="utf-8")
+    C = clock_numbers()
 
     fh.write(rule() + "\n")
     fh.write("EVALUATION OF IPC THROUGH LINUX PIPES\n")
@@ -212,35 +238,59 @@ CONTENTS
     paste(fh, newest("clock-final.txt"))
     fh.write("""  FINDINGS
 
-  - gettimeofday is disqualified: 97.45% of adjacent readings are identical,
-    because two calls complete inside one microsecond tick. It cannot resolve
-    the 708 ns round trip that part 2 has to measure.
+  - gettimeofday is disqualified: %(gtod_zero).2f%% of adjacent readings are
+    identical, because two calls complete inside one microsecond tick. It
+    cannot resolve the 708 ns round trip that part 2 has to measure.
 
-  - The cycle counter is the cheapest to read (11.3 ns) but not the finest.
-    cntfrq_el0 reports 24 MHz, a 41.67 ns period, and two back-to-back reads
-    differ by zero ticks.
+  - The cycle counter is the cheapest to read (%(cc_call).1f ns) but not the
+    finest. cntfrq_el0 reports 24 MHz, a %(cc_res).2f ns period, and two
+    back-to-back reads differ by zero ticks.
 
-  - clock_gettime shows a smallest nonzero delta of 41 ns -- the same quantum.
-    The reason is that the kernel's clocksource IS that register:
+  - clock_gettime shows a smallest nonzero delta of %(cgt_res).0f ns -- the
+    same quantum. The reason is that the kernel's clocksource IS that register:
 
-""")
+""" % C)
     cmd(fh, "cat /sys/devices/system/clocksource/clocksource0/current_clocksource")
     paste_text(fh, "arch_sys_counter", "guest")
-    fh.write("""    So the vDSO reads cntvct_el0 and scales it. clock_gettime costs three
-    times more per call and gives up no resolution, while adding monotonicity.
-    We used it for everything that follows.
+    fh.write("""    So the vDSO reads cntvct_el0 and scales it.
 
-  - Cross-core skew is 400 ns of noise with no systematic step. The arm64
+  - WHY WE CHOSE clock_gettime. Not for speed: it costs about %(ratio).1fx what
+    the raw counter does per call (%(cgt_call).1f ns against %(cc_call).1f ns),
+    and that overhead is charged to every measurement. The grounds are
+    portability and exactness:
+
+      * clock_gettime is one POSIX call with identical behaviour on arm64 and
+        x86-64. The cycle counter needs per-architecture inline assembly.
+      * On x86-64 there is no cntfrq_el0 equivalent, so Timer.h has to
+        CALIBRATE the TSC against CLOCK_MONOTONIC and divide -- which imports
+        that clock's error into every reading taken afterwards. On arm64 the
+        rate is exact and hardware-reported. A clock we can only trust on one
+        of the two architectures the code compiles for is not one the result
+        should rest on.
+      * clock_gettime guarantees monotonicity; a raw rdtsc read does not.
+
+    Since the two share a quantum, taking the portable clock costs resolution
+    nothing. That is the trade: about %(ratio).1fx the call cost, bought with
+    portability, exactness and monotonicity.
+
+  - The zero-delta fraction needs care in reading. It is NOT a coarseness
+    measure -- it is roughly 1 - (call cost / quantum), so it says how cheap a
+    call is relative to one tick. cntvct_el0's high fraction and
+    gettimeofday's high fraction have opposite causes: the first has a fine
+    quantum and very cheap calls, the second has a quantum 24x coarser. Only
+    the second is disqualifying. The paper's Table 1 prints the predicted
+    value beside the measured one to make that explicit.
+
+  - Cross-core skew is at most %(skew).0f ns with no systematic step. The arm64
     generic timer is architecturally system-wide, so the per-core skew warning
-    written for the x86 TSC does not apply here. This is stated in the paper as
-    a measured result, not as received wisdom.
+    written for the x86 TSC does not apply here. Measured, not assumed.
 
   - All three clocks recover sleep(5) as 5.0024 s and agree within 53 ppm. The
     492 ppm excess is the wakeup latency of sleep() itself, not clock error --
     which is exactly why three independent clocks agree on it.
-""")
+""" % C)
 
-    # ------------------------------------------------------------------
+  # ------------------------------------------------------------------
     head(fh, 6, "Part 2 -- latency")
     fh.write("""  VARIABLES   cause: payload size (4 B to 512 KiB, the sizes the assignment
               specifies) and process placement. effect: one-way latency.
@@ -538,7 +588,22 @@ CONTENTS
      following \\bottomrule a misplaced \\noalign -- so scripts/aggregate.py
      emits the complete tabular environment rather than just its rows.
 
-  6. FIGURE COLOURS.
+  6. THE PAPER'S TABLE 1 DISAGREED WITH THE COMMITTED CSV.
+     Table 1 and several numbers in the prose were typed in by hand from the
+     first timer-test run. Part 1 was later re-run -- after the latency
+     benchmark was trimmed -- and clock_precision.csv was regenerated, but the
+     paper was not. The table went on quoting a 35.3 ns call cost and a 19.83%
+     zero fraction while the committed CSV said 20.2 ns and 53.7%. Both runs
+     were internally consistent, so nothing looked wrong; the paper simply
+     described a run whose data had been replaced. Cross-core skew had drifted
+     the same way, 400 ns in the prose against 83 ns in the data.
+     Fixed, and fixed structurally rather than by retyping: Table 1 is now
+     generated from clock_precision.csv, and scripts/aggregate.py additionally
+     emits figures/numbers.tex, a set of LaTeX macros holding every figure the
+     PROSE quotes. Re-running a benchmark now updates the sentences, not just
+     the tables. This log takes its numbers from the same source.
+
+  7. FIGURE COLOURS.
      The first draft let pgfplots cycle its default colours. With five curves
      in Figure 2b the cycle repeated, drawing the 4 KiB and 1 MiB capacities --
      the two extremes of the comparison -- in the same blue. Capacity is an

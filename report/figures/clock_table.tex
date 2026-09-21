@@ -1,0 +1,10 @@
+\begin{tabular}{lrrrr}
+\toprule
+Clock & Call & Quantum & Zero & Predicted \\
+ & (ns) & (ns) & deltas & $1-c/q$ \\
+\midrule
+\texttt{clock\_gettime} & 20.2 & 41.0 & 53.7\,\% & 50.7\,\% \\
+\texttt{gettimeofday} & 22.8 & 1000.0 & 97.9\,\% & 97.7\,\% \\
+\texttt{cntvct\_el0} & 10.4 & 41.7 & 75.4\,\% & 75.0\,\% \\
+\bottomrule
+\end{tabular}
