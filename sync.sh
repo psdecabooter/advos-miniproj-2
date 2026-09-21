@@ -9,5 +9,5 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 rsync -a \
   --exclude '.git' --exclude 'results' --exclude 'report' \
   --exclude 'timer-test' --exclude 'latency-test' --exclude 'throughput-test' \
-  --exclude 'capacity-test' --exclude 'resize-test' --exclude '*.csv' \
+  --exclude 'capacity-test' --exclude 'resize-test' --exclude 'profile-test' --exclude '*.csv' \
   -e 'ssh -p 2222' "$REPO/" shawliu@localhost:~/advos-miniproj-2/

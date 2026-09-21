@@ -1,0 +1,16 @@
+Pipe round trip latency, halved, payload sizes 4 B to 512 KiB
+50 warmup exchanges per size, then the rep count shown
+
+clock           payload      mean (ns)       min (ns)
+clock_gettime          4       12293.67        2167.00
+clock_gettime         16       12103.05        2062.50
+clock_gettime         64       11605.03        2291.50
+clock_gettime        256       11125.11        3666.50
+clock_gettime       1024       11725.33        2687.50
+clock_gettime       4096       11770.19        2562.50
+clock_gettime      16384       13417.32        6708.50
+clock_gettime      65536       17360.96       10271.00
+clock_gettime     262144       65438.99       54438.50
+clock_gettime     524288      129657.82      113730.50
+
+Wrote pipe_latency_unpinned-r3.csv

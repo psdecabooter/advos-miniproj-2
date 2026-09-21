@@ -1,0 +1,32 @@
+payload=4 reps=20000 parent_cpu=0 child_cpu=0
+  wall                     0.0405 s   (    2026 ns / round trip)
+  user   (both procs)      0.0045 s   ( 11.1% of wall)
+  system (both procs)      0.0362 s   ( 89.5% of wall)
+  unaccounted             -0.0002 s   ( -0.5% of wall)  <- blocked/idle
+  voluntary ctx sw          39648     (    1.98 / round trip)
+  involuntary ctx sw          358     (    0.02 / round trip)
+
+payload=524288 reps=500 parent_cpu=0 child_cpu=0
+  wall                     0.0332 s   (   66401 ns / round trip)
+  user   (both procs)      0.0000 s   (  0.0% of wall)
+  system (both procs)      0.0336 s   (101.2% of wall)
+  unaccounted             -0.0004 s   ( -1.2% of wall)  <- blocked/idle
+  voluntary ctx sw           7995     (   15.99 / round trip)
+  involuntary ctx sw           10     (    0.02 / round trip)
+
+payload=4 reps=20000 parent_cpu=0 child_cpu=1
+  wall                     0.4650 s   (   23250 ns / round trip)
+  user   (both procs)      0.0059 s   (  1.3% of wall)
+  system (both procs)      0.1828 s   ( 39.3% of wall)
+  unaccounted              0.2763 s   ( 59.4% of wall)  <- blocked/idle
+  voluntary ctx sw          39978     (    2.00 / round trip)
+  involuntary ctx sw            3     (    0.00 / round trip)
+
+payload=524288 reps=500 parent_cpu=0 child_cpu=1
+  wall                     0.1319 s   (  263805 ns / round trip)
+  user   (both procs)      0.0072 s   (  5.5% of wall)
+  system (both procs)      0.0689 s   ( 52.2% of wall)
+  unaccounted              0.0558 s   ( 42.3% of wall)  <- blocked/idle
+  voluntary ctx sw           7992     (   15.98 / round trip)
+  involuntary ctx sw            2     (    0.00 / round trip)
+

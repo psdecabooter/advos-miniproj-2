@@ -149,7 +149,11 @@ static void latency_parent(int p2c[2], int c2p[2], pid_t cpid) {
 
   char ack;
 
-  /* clock_gettime */
+  /* Only clock_gettime.  Part 1 measured gettimeofday's granularity at 1 us,
+     with 97% of consecutive reads landing in the same tick, which is coarser
+     than the 728 ns round trip this benchmark has to resolve at small
+     payloads.  Sweeping it a second time here would only re-measure that
+     limitation. */
   printf("%-12s %10s %14s %14s\n", "clock", "payload", "mean (ns)",
          "min (ns)");
   for (int pi = 0; pi < NSIZES; ++pi) {
@@ -187,44 +191,6 @@ static void latency_parent(int p2c[2], int c2p[2], pid_t cpid) {
     free(payload);
   }
 
-  /* gettimeofday */
-  printf("\n%-12s %10s %14s %14s\n", "clock", "payload", "mean (us)",
-         "min (us)");
-  for (int pi = 0; pi < NSIZES; ++pi) {
-    int size = payload_sizes[pi];
-    int reps = reps_for(size);
-    char *payload = calloc(size, 1);
-    if (payload == NULL) {
-      kill_kid(cpid);
-      perror("calloc");
-      exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < WARMUP; ++i) {
-      write_all(p2c[1], payload, size);
-      read_all(c2p[0], &ack, 1);
-    }
-
-    TimerGTOD timer;
-    long long int sum = 0;              /* reset for every payload size */
-    long long int best = LLONG_MAX;
-    for (int i = 0; i < reps; ++i) {
-      startTimerGTOD(&timer);
-      write_all(p2c[1], payload, size);
-      read_all(c2p[0], &ack, 1);
-      long long int rt = getTimerGTODMicro(&timer);
-      sum += rt;
-      if (rt < best)
-        best = rt;
-    }
-
-    double mean = ((double)sum / reps) / 2.0;
-    double mn = (double)best / 2.0;
-    printf("%-12s %10d %14.2lf %14.2lf\n", "gettimeofday", size, mean, mn);
-    fprintf(csv, "gettimeofday,%d,%d,%.2lf,%.2lf,us\n", size, reps, mean, mn);
-    free(payload);
-  }
-
   fclose(csv);
   printf("\nWrote %s\n", csvpath);
   kill_kid(cpid);
@@ -248,14 +214,12 @@ static void latency_child(int p2c[2], int c2p[2]) {
   }
   char ack = 1;
 
-  for (int clockmode = 0; clockmode < 2; ++clockmode) {
-    for (int pi = 0; pi < NSIZES; ++pi) {
-      int size = payload_sizes[pi];
-      int total = WARMUP + reps_for(size);
-      for (int i = 0; i < total; ++i) {
-        read_all(p2c[0], buf, size);
-        write_all(c2p[1], &ack, 1);
-      }
+  for (int pi = 0; pi < NSIZES; ++pi) {
+    int size = payload_sizes[pi];
+    int total = WARMUP + reps_for(size);
+    for (int i = 0; i < total; ++i) {
+      read_all(p2c[0], buf, size);
+      write_all(c2p[1], &ack, 1);
     }
   }
 

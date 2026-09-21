@@ -1,7 +1,7 @@
 CC     = gcc
 CFLAGS = -O3 -Wall -Wextra
 
-BINS = timer-test latency-test throughput-test capacity-test resize-test
+BINS = timer-test latency-test throughput-test capacity-test resize-test profile-test
 
 all: $(BINS)
 
@@ -19,6 +19,9 @@ capacity-test: pipe_capacity.c
 
 resize-test: pipe_resize.c Timer.h
 	$(CC) $(CFLAGS) pipe_resize.c -o $@
+
+profile-test: pipe_profile.c Timer.h
+	$(CC) $(CFLAGS) pipe_profile.c -o $@
 
 # Run targets. The benchmarks write their own CSVs into the working directory.
 run-timer: timer-test
