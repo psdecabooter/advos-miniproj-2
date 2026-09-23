@@ -3,8 +3,8 @@
 
   Example output:
   --------------------
-  Measuring halved-round-trip latency for a variety of message sizes: 4, 16, 64, 256, 1K, 4K, 16K, 64K, 256K, and 512K bytes
-  Testing each 10 times, finding min
+  Measuring halved-round-trip latency for a variety of message sizes: 4, 16, 64,
+  256, 1K, 4K, 16K, 64K, 256K, and 512K bytes Testing each 10 times, finding min
 
   clock_gettime: 19005.00 nanoseconds, 4 payload size
   clock_gettime: 19104.50 nanoseconds, 16 payload size
@@ -37,9 +37,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define ITERS (25)
+
 const int MAX_SIZE = 524288;
 const int payload_sizes[] = {4,    16,    64,    256,    1024,
                              4096, 16384, 65536, 262144, 524288};
+
+long long int DATA[10][ITERS];
 
 void kill_kid(pid_t cpid) {
   if (cpid > 0) {
@@ -57,7 +61,7 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
          "4, 16, "
          "64, 256, "
          "1K, 4K, 16K, 64K, 256K, and 512K bytes\n");
-  printf("Testing each 10 times, finding min\n");
+  printf("Testing each %d times, finding min\n", ITERS);
 #endif
 
   char read_ack;
@@ -75,7 +79,7 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
         exit(EXIT_FAILURE);
       }
 
-      for (int i = 0; i < 10; ++i) {
+      for (int i = 0; i < ITERS; ++i) {
         startTimerCGT(&timer_cgt);
 
         if (write(p2c[1], payload, size) != size) {
@@ -91,6 +95,7 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
         }
 
         long long int test = getTimerCGTNano(&timer_cgt);
+        DATA[pi][i] = test;
         if (test < min) {
           min = test;
         }
@@ -102,6 +107,14 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
              (((double)min) / 2.), size);
 #endif
     }
+#ifndef PL_SILENT
+    for (int j = 0; j < 10; ++j) {
+      printf("Payload size: %d\n", payload_sizes[j]);
+      for (int k = 0; k < ITERS; ++k) {
+        printf("%.2lf\n", (double)DATA[j][k] / 2.);
+      }
+    }
+#endif
   }
 
   {
@@ -117,7 +130,7 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
         exit(EXIT_FAILURE);
       }
 
-      for (int i = 0; i < 10; ++i) {
+      for (int i = 0; i < ITERS; ++i) {
         startTimerGTOD(&timer_gtod);
 
         if (write(p2c[1], payload, size) != size) {
@@ -131,6 +144,7 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
         }
 
         long long int test = getTimerGTODMicro(&timer_gtod);
+        DATA[pi][i] = test;
         if (test < min) {
           min = test;
         }
@@ -142,6 +156,14 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
              (((double)min) / 2.), size);
 #endif
     }
+#ifndef PL_SILENT
+    for (int j = 0; j < 10; ++j) {
+      printf("Payload size: %d\n", payload_sizes[j]);
+      for (int k = 0; k < ITERS; ++k) {
+        printf("%.2lf\n", (double)DATA[j][k] / 2.);
+      }
+    }
+#endif
   }
 
   kill_kid(cpid);
@@ -160,7 +182,7 @@ void latency_watcher(int p2c[2], int c2p[2]) {
   for (int ti = 0; ti < 2; ++ti) {
     for (int pi = 0; pi < 10; ++pi) {
       int size = payload_sizes[pi];
-      for (int i = 0; i < 10; ++i) {
+      for (int i = 0; i < ITERS; ++i) {
         int bytes_read = 0;
 
         // Keep reading from the pipe until done

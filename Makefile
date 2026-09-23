@@ -18,3 +18,6 @@ throughput-test:
 
 latency-debug:
 	gcc pipe_latency.c -static -DPL_SILENT -O0 -g -fno-omit-frame-pointer -o latency-debug
+
+throughput-debug:
+	gcc pipe_throughput.c -static -DPT_SILENT -O0 -g -fno-omit-frame-pointer -o throughput-debug

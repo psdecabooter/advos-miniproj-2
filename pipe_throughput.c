@@ -88,7 +88,7 @@ void throughput_test(int p2c[2], int c2p[2], pid_t cpid) {
         min = test;
       }
 
-#ifndef PL_SILENT
+#ifndef PT_SILENT
       printf("clock_gettime: %lld nanoseconds, %.3lf seconds, %d x %d payload "
              "size\n",
              min, (double)min / 1000000000, ITERS, PSIZE);
@@ -128,7 +128,7 @@ void throughput_test(int p2c[2], int c2p[2], pid_t cpid) {
         min = test;
       }
 
-#ifndef PL_SILENT
+#ifndef PT_SILENT
       printf("clock_gettime: %lld microseconds, %.3lf seconds, %d x %d payload "
              "size\n",
              min, ((double)min) / 1000000., ITERS, PSIZE);
