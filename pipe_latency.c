@@ -6,27 +6,27 @@
   Measuring halved-round-trip latency for a variety of message sizes: 4, 16, 64, 256, 1K, 4K, 16K, 64K, 256K, and 512K bytes
   Testing each 10 times, finding min
 
-  clock_gettime: 30606.00 nanoseconds, 4 payload size
-  clock_gettime: 30552.00 nanoseconds, 16 payload size
-  clock_gettime: 41875.50 nanoseconds, 64 payload size
-  clock_gettime: 23037.00 nanoseconds, 256 payload size
-  clock_gettime: 29706.00 nanoseconds, 1024 payload size
-  clock_gettime: 26560.00 nanoseconds, 4096 payload size
-  clock_gettime: 32152.50 nanoseconds, 16384 payload size
-  clock_gettime: 45757.50 nanoseconds, 65536 payload size
-  clock_gettime: 153987.50 nanoseconds, 262144 payload size
-  clock_gettime: 254329.00 nanoseconds, 524288 payload size
+  clock_gettime: 19005.00 nanoseconds, 4 payload size
+  clock_gettime: 19104.50 nanoseconds, 16 payload size
+  clock_gettime: 19787.00 nanoseconds, 64 payload size
+  clock_gettime: 16071.50 nanoseconds, 256 payload size
+  clock_gettime: 17941.50 nanoseconds, 1024 payload size
+  clock_gettime: 16415.50 nanoseconds, 4096 payload size
+  clock_gettime: 19811.50 nanoseconds, 16384 payload size
+  clock_gettime: 27716.00 nanoseconds, 65536 payload size
+  clock_gettime: 106124.00 nanoseconds, 262144 payload size
+  clock_gettime: 202888.00 nanoseconds, 524288 payload size
 
-  gettimeofday: 30.50 microseconds, 4 payload size
-  gettimeofday: 31.50 microseconds, 16 payload size
-  gettimeofday: 24.00 microseconds, 64 payload size
-  gettimeofday: 24.00 microseconds, 256 payload size
-  gettimeofday: 32.50 microseconds, 1024 payload size
-  gettimeofday: 40.50 microseconds, 4096 payload size
-  gettimeofday: 44.00 microseconds, 16384 payload size
-  gettimeofday: 39.50 microseconds, 65536 payload size
-  gettimeofday: 118.50 microseconds, 262144 payload size
-  gettimeofday: 243.50 microseconds, 524288 payload size
+  gettimeofday: 10.50 microseconds, 4 payload size
+  gettimeofday: 18.00 microseconds, 16 payload size
+  gettimeofday: 11.00 microseconds, 64 payload size
+  gettimeofday: 18.50 microseconds, 256 payload size
+  gettimeofday: 11.00 microseconds, 1024 payload size
+  gettimeofday: 11.00 microseconds, 4096 payload size
+  gettimeofday: 20.00 microseconds, 16384 payload size
+  gettimeofday: 29.50 microseconds, 65536 payload size
+  gettimeofday: 107.00 microseconds, 262144 payload size
+  gettimeofday: 195.00 microseconds, 524288 payload size
   --------------------
 */
 #include "Timer.h"
@@ -37,6 +37,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+const int MAX_SIZE = 524288;
 const int payload_sizes[] = {4,    16,    64,    256,    1024,
                              4096, 16384, 65536, 262144, 524288};
 
@@ -78,11 +79,13 @@ void latency_test(int p2c[2], int c2p[2], pid_t cpid) {
         startTimerCGT(&timer_cgt);
 
         if (write(p2c[1], payload, size) != size) {
+          kill_kid(cpid);
           perror("write");
           exit(EXIT_FAILURE);
         }
 
         if (read(c2p[0], &read_ack, 1) <= 0) {
+          kill_kid(cpid);
           perror("read");
           exit(EXIT_FAILURE);
         }
@@ -152,7 +155,7 @@ void latency_watcher(int p2c[2], int c2p[2]) {
   close(p2c[1]);
   close(c2p[0]);
   // Buff is as large as the pipe
-  char buf[PIPE_BUF];
+  char buf[MAX_SIZE];
   char ack = 1;
   for (int ti = 0; ti < 2; ++ti) {
     for (int pi = 0; pi < 10; ++pi) {
@@ -162,7 +165,7 @@ void latency_watcher(int p2c[2], int c2p[2]) {
 
         // Keep reading from the pipe until done
         while (bytes_read < size) {
-          int just_read = read(p2c[0], buf, PIPE_BUF);
+          int just_read = read(p2c[0], buf, MAX_SIZE);
           if (just_read <= 0) {
             perror("read");
             exit(EXIT_FAILURE);

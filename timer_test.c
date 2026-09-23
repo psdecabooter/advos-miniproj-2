@@ -7,13 +7,13 @@
   Example Output:
   --------------------
   ./timer-test
-  Min smallest time of dividing the sum of times by 25 over 25 loops
-  clock_gettime: 1400.00 nanoseconds
+  Min smallest time of adding to one number 100 times over 10 loops
+  clock_gettime: 1308.00 nanoseconds
   gettimeofday: 1.00 microseconds
 
   Min 5sec over 5 runs
   clock_gettime: 5.0001 seconds
-  gettimeofday: 5.0002 seconds
+  gettimeofday: 5.0001 seconds
   --------------------
 */
 #include "Timer.h"
