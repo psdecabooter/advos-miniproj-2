@@ -1,7 +1,7 @@
 # Fdb version 4
-["pdflatex"] 1790197845.7967 "/home/psdecabooter/class/advos/mini-project-2-measurement/report/main.tex" "main.pdf" "main" 1790197847.14639 0
+["pdflatex"] 1790199801.12994 "/home/psdecabooter/class/advos/mini-project-2-measurement/report/main.tex" "main.pdf" "main" 1790199803.45359 0
   "/etc/texmf/web2c/texmf.cnf" 1775598488.55019 475 c0e671620eb5563b2130f56340a5fde8 ""
-  "/home/psdecabooter/class/advos/mini-project-2-measurement/report/main.tex" 1790197845.5258 7515 e0e8cebfea13c6eedd2b0254c3f49987 ""
+  "/home/psdecabooter/class/advos/mini-project-2-measurement/report/main.tex" 1790199800.7096 8942 2309d6e18932bdb09a62a281307ee625 ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmb7t.tfm" 1136768653 2172 fd0c924230362ff848a33632ed45dc23 ""
@@ -69,8 +69,8 @@
   "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1775598522.24231 5472669 54eaf61a88b6b7896ebd0dac973cb29c ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1775598681 8213060 8023222fd5ac33277e46c765e8524150 ""
-  "main.aux" 1790197847.07301 901 37d48b602e1491b596c45909032b070f "pdflatex"
-  "main.tex" 1790197845.5258 7515 e0e8cebfea13c6eedd2b0254c3f49987 ""
+  "main.aux" 1790199803.34972 901 d2658f6b9f695f07d4bc35341219d38f "pdflatex"
+  "main.tex" 1790199800.7096 8942 2309d6e18932bdb09a62a281307ee625 ""
   "pipe_latency.png" 1790194073.37477 23858 39e472d9c1a525bf0607752cd677e4a5 ""
   (generated)
   "main.aux"
