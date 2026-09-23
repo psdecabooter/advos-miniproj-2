@@ -40,8 +40,10 @@
 #define ITERS (25)
 
 const int MAX_SIZE = 524288;
-const int payload_sizes[] = {4,    16,    64,    256,    1024,
-                             4096, 16384, 65536, 262144, 524288};
+const int payload_sizes[] =
+    // fart
+    // {4, 16, 64, 256, 1024, 4, 16, 64, 256, 1024};
+{4096, 16384, 65536, 262144, 524288, 4096, 16384, 65536, 262144, 524288};
 
 long long int DATA[10][ITERS];
 

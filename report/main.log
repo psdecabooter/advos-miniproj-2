@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.7)  23 SEP 2026 15:05
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.7)  23 SEP 2026 16:10
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -389,52 +389,58 @@ Package microtype Info: Loading generic protrusion settings for font family
 <pipe_latency.png, id=9, 433.62pt x 289.08pt>
 File: pipe_latency.png Graphic file (type png)
 <use pipe_latency.png>
-Package pdftex.def Info: pipe_latency.png  used on input line 83.
+Package pdftex.def Info: pipe_latency.png  used on input line 90.
 (pdftex.def)             Requested size: 229.8775pt x 153.25136pt.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10.95> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 101.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 129.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 101.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 129.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <6> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 101.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 129.
 
-Overfull \hbox (66.0085pt too wide) in paragraph at lines 115--130
+Overfull \hbox (66.0085pt too wide) in paragraph at lines 129--144
  [][] 
  []
 
-[leftcolumn badness]: 1000000 on 7.03543pt
-[rightcolumn badness]: 1000000 on 7.03543pt
+[leftcolumn badness]: 1000000 on 94.37474pt
+[rightcolumn badness]: 1000000 on 94.37474pt
+[leftcolumn badness]: 1000000 on 94.37474pt
+[rightcolumn badness]: 1000000 on 94.37474pt
+[leftcolumn badness]: 1000000 on 94.37474pt
+[rightcolumn badness]: 1000000 on 94.37474pt
 - LAST -
 Extra skip:0.0pt
-Left:519.62764pt/2.37057pt
-Right:532.01912pt/0.0pt
-Split: 528.12338pt
-Output:528.12338pt
-Pageshrink: 5.97095pt
-Pagestretch: 19.8114pt
+Left:579.55212pt/1.54384pt
+Right:561.5558pt/2.93027pt
+Split: 574.85396pt
+Output:574.85396pt
+Pageshrink: 1.97095pt
+Pagestretch: 17.8114pt
 @colht:650.43001pt
-FLUSHEND [output]: 528.12338pt
-FLUSHEND [leftcolumn badness]: 63
-FUSHEND [rightcolumn badness]: 94
-[2 <./pipe_latency.png>] (./main.aux)
+FLUSHEND [output]: 574.85396pt
+FLUSHEND [leftcolumn badness]: 83
+FUSHEND [rightcolumn badness]: 49
+[2 <./pipe_latency.png>] [3
+
+] (./main.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 9321 strings out of 474222
- 208850 string characters out of 5748734
- 1942975 words of memory out of 5000000
+ 9320 strings out of 474222
+ 208855 string characters out of 5748734
+ 1945975 words of memory out of 5000000
  31335 multiletter control sequences out of 15000+600000
- 590570 words of font info for 178 fonts, out of 8000000 for 9000
+ 588495 words of font info for 176 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  73i,8n,80p,1066b,530s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb>
-Output written on main.pdf (2 pages, 85306 bytes).
+</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb>
+Output written on main.pdf (3 pages, 76046 bytes).
 PDF statistics:
- 35 PDF objects out of 1000 (max. 8388607)
- 20 compressed objects within 1 object stream
+ 33 PDF objects out of 1000 (max. 8388607)
+ 19 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  48646 words of extra memory for PDF output out of 51595 (max. 10000000)
 

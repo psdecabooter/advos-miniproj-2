@@ -9,7 +9,7 @@
 \usepackage{booktabs} 
 \usepackage{siunitx}
 
-\title{Evaluation Linux Pipes as an IPC Mechanism}
+\title{Evaluating Linux Pipes in a Vacuum}
 \author{Patrick DeCabooter}
 \date{}
 
@@ -60,10 +60,17 @@ increased accuracy and give us more intuitive numbers for figures.
 
 \section{Linux Pipes}
 When data moves between processes in a \pipe, it is not as simple as the other process reading it out of virtual memory.
-First, the data must be sent by \texttt{write} and cross the system call barrier to enter kernel-space memory.
+First, the data must be sent by the \texttt{write} system call that context-switches into kernel mode and
+copies the data into a kernel-space buffer.
+Next, the reader must call the \texttt{read} system call that once again context-switches into kernel mode
+and copies the data in the kernel-space buffer back into a buffer in the user-space of that process.
+Finally, often times the reader will be programmed to send back an acknowledgement byte to the writer so it knows the message has
+been received. Since \pipes are one-directional, this acknowledgement is don on a separate \pipe.
 
-and use the \pipe writing file descriptor as an address. Then, the reader must call the \texttt{read} 
-system call and wait to copy the data from kernel-space memory into a buffer in the user-space of that process.
+We did not test \pipes with any flags enabled or changes to buffer sizes. This means that the kernel is using
+the default pipe buffer size of 64KiB. This also means that \texttt{write} and \texttt{read} operated in blocking mode.
+Therefore, \texttt{write} will block until all bytes of the payload are written and \texttt{read} will block
+until it is able to read data from the pipe.
 
 \section{Evaluation}
 
@@ -83,33 +90,40 @@ tests since we wanted to find the highest fidelity possible if our machine was r
   \includegraphics[width=\columnwidth]{pipe_latency}
   \caption{Latency of \pipe across different payload sizes. The x-axis shows
   payload size in bytes on a log base-2 scale. The y-axis shows the geometric mean relative
-  to the smallest payload size of 4 bytes.}
+  to the latency of the smallest payload size of 4 bytes.}
   \label{fig:pipe_latency}
 \end{figure}
 
 \subsection*{Pipe Latency}
-We tested 10 different payload
-sizes and measured the time from payload send to acknowledgement acquisition. To construct our 
-experiment, we had two processes. The parent process forked itself at the start of execution.  The child enters a loop where it waits for the parent to send data then acknowledges the request.
-The parent sends each payload size 10 times and calculates the minimum latency for each size. 
-The payload sizes we used were: 4, 16, 64, 256, 1K, 4K, 16K, 64K, 256K, and 512K bytes. We ran
-both experiments using the \cgt and \gtod timers. We hypothesis that the majority of the latency of the \pipes will be from 
-context switching and copying the memory in these system calls. We will test this by compiling as a static binary and using the
-\texttt{time} and \texttt{perf} utilities to measure time spent in user-space and kernel-space.
+We tested pipe latency under 10 different payload sizes: 4, 16, 64, 256, 1K, 4K, 16K, 64K, 256K, and 512K bytes. 
+Since synchronizing clocks between processes is unwieldy, we measured the time from payload send to acknowledgement acquisition. 
+To construct our experiment, we had two processes. The parent process forked itself at the start of execution.  
+The child enters a loop where it waits for the parent to send data then acknowledges the request.
+The parent sends each payload size 10 times. 
+Both experiments using the \cgt and \gtod timers. 
 
-The hypothesis that most of the time would be spent inside of the system calls was accurate to the
-measured results. Using the \texttt{time} utility showed that out of $0.051$ seconds spent on the benchmark,
-$0.001$ second was spent in user-space and $0.047$ seconds were spent in kernel-space. To further prove this
-hypothesis, the \texttt{perf} utility recorded that the parent process spent $66.66\%$ of the runtime in \texttt{\_\_libc\_read} 
-and $33.33\%$ of the runtime getting the time from the clock in \texttt{\_\_vdso\_clock\_gettime}.
+As seen in Figure~\ref{fig:pipe_latency}, until the payload size reaches ~16KiB, the latency 
+appears to be constant. At payload sizes above 64KiB, the latency begins to grow linearly. We suspect 
+that this scaling is due to these larger payload sizes hitting the default pipe buffer size. 
+Once the kernel's pipe buffer is full, the \texttt{write} system call must block until it is emptied enough
+for more data to flow.
+To further dig into this hypothesis, we used the \texttt{strace} utility to measure the time spent in \texttt{wait4} by the parent process. 
+First we tested together the payload sizes below 64KiB, then we tested together the payload sizes above 64KiB.
+Using the small payload sizes, \texttt{wait4} took only 15\% of execution time. 
+Using the large payload sizes, \texttt{wait4} took 35\% of execution time.
+This backs up our hypothesis that smaller payload sizes spend less time waiting. 
+However, given more time, testing different kernel buffer sizes would be able to further elucidate
+the latency relationship between kernel buffer sizes and payload sizes.
 
 \subsection*{Pipe Throughput}
 
 
 \section{Conclusion}
-Fart
+Inter-process Communication (IPC) presents many problems and \pipes are just one way to solve them.
+Despite their old age, \pipes can still be seen in systems today. Because they are so common,
+it is important that we understand their performance properties.
 
-\section{Computer Specification}
+\section*{Computer Specification}
 \begin{table}[htbp]
 \centering
 \begin{tabular}{ll}
